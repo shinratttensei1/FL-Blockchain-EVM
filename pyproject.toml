@@ -31,12 +31,11 @@ publisher = "shinratttensei"
 serverapp = "fl_blockchain_evm.server_app:app"
 clientapp = "fl_blockchain_evm.client_app:app"
 
-# Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
-num-server-rounds = 3
-fraction-train = 0.5
-local-epochs = 1
-lr = 0.01
+num-server-rounds = 500  
+fraction-train = 0.1     # Sampling 10% of nodes often improves generalization
+local-epochs = 1         # Lowering this reduces "Client Drift"
+lr = 0.001               # Increase to 1e-3 if using Adam, or 0.01 for SGD
 
 # Default federation to use when running the app
 [tool.flwr.federations]
