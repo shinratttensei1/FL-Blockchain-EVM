@@ -13,7 +13,7 @@ __pycache__/
 
 results.json
 final_model.pt
-rounds_vs_accuracy.png
+eval_vs_global.png
 
 
 # Distribution / packaging

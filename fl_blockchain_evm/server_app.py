@@ -21,7 +21,19 @@ def global_evaluate(server_round: int, arrays: ArrayRecord, config: ConfigRecord
     _, server_testloader = load_server_data(partition_id=0, num_partitions=1)
     loss, accuracy = test_fn(model, server_testloader, device)
 
-    return {"loss": float(loss), "accuracy": float(accuracy)}
+    global_result = {
+        "round": server_round,
+        "type": "global",
+        "accuracy": float(accuracy),
+        "loss": float(loss),
+        "timestamp": datetime.now().isoformat()
+    }
+
+    with open("results.json", "a") as f:
+        json.dump(global_result, f)
+        f.write("\n")
+
+    return {"loss": loss, "accuracy": accuracy}
 
 
 # Create ServerApp
