@@ -12,24 +12,30 @@ from flwr_datasets.partitioner import NaturalIdPartitioner
 
 
 class Net(nn.Module):
-    """Model adapted for FEMNIST (28x28 grayscale)."""
-
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, 5)
+        # FEMNIST images are 28x28 grayscale (1 channel)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(16, 32, 5)
-        self.fc1 = nn.Linear(32 * 4 * 4, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 62)
+
+        # Dropout helps generalize across different handwriting styles
+        self.dropout1 = nn.Dropout(0.25)
+        self.dropout2 = nn.Dropout(0.5)
+
+        # Adjusting fully connected layers for 62 classes
+        self.fc1 = nn.Linear(64 * 7 * 7, 128)
+        self.fc2 = nn.Linear(128, 62)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 32 * 4 * 4)
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = x.view(-1, 64 * 7 * 7)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.dropout1(x)
+        return self.fc2(x)
 
 
 pytorch_transforms = Compose(
@@ -46,7 +52,6 @@ def apply_transforms(batch):
 
 
 def load_data(partition_id: int, num_partitions: int):
-    """Load partition CIFAR10 data."""
     # Only initialize `FederatedDataset` once
     global fds
 
@@ -56,10 +61,8 @@ def load_data(partition_id: int, num_partitions: int):
             partitioners={"train": NaturalIdPartitioner(
                 partition_by="writer_id")}
         )
-    partition = fds.load_partition(partition_id=0)
-    # Divide data on each node: 80% train, 20% test
+    partition = fds.load_partition(partition_id)
     partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-    # Construct dataloaders
     partition_train_test = partition_train_test.with_transform(
         apply_transforms)
     trainloader = DataLoader(
@@ -70,7 +73,7 @@ def load_data(partition_id: int, num_partitions: int):
 
 def train(net, trainloader, epochs, lr, device):
     """Train the model on the training set."""
-    net.to(device)  # move model to GPU if available
+    net.to(device)
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     net.train()
