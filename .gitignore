@@ -11,10 +11,10 @@ __pycache__/
 
 # Output files
 
-results.json
-final_model.pt
-eval_vs_global.png
-
+metrics/
+outputs/
+docs/
+final_model.pt 
 
 # Distribution / packaging
 .Python
