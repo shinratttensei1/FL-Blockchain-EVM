@@ -1,54 +1,52 @@
-"""FL-Blockchain-EVM: A Flower / PyTorch app."""
+"""FL-Blockchain-EVM: Client App — IoT Medical Edge Device.
 
+Each client simulates an IoT medical edge device that:
+  1. Loads its local partition of PTB-XL ECG data
+  2. Applies ROS+RUS balancing locally (Jimenez et al., 2024)
+  3. Trains the CRNN model for `local-epochs`
+  4. Reports per-device training & evaluation metrics
+"""
+
+import time
 import torch
+import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
-from typing import List, Tuple, Dict
-from flwr.common import Metrics
+from fl_blockchain_evm.task import (
+    Net, load_data, train as train_fn, test as test_fn,
+    ALL_SCP_CODES, NUM_CLASSES, SC_NAMES, apply_ros_rus_balancing
+)
 
-from fl_blockchain_evm.task import Net, load_data
-from fl_blockchain_evm.task import test as test_fn
-from fl_blockchain_evm.task import train as train_fn
 
-# Flower ClientApp
+# Unified device selection for MacBook M4 and others
+def _get_device() -> torch.device:
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    elif torch.cuda.is_available():
+        return torch.device("cuda:0")
+    return torch.device("cpu")
+
+
 app = ClientApp()
-
-RED = '\033[91m'
-RESET = '\033[0m'
 
 
 @app.train()
 def train(msg: Message, context: Context):
-    """Train the model on local data with emergency detection.
-
-    Simulates medical IoT edge device that scans local data for critical pathologies.
-    In this FEMNIST simulation:
-    - Classes 10-61 (letters A-Z, a-z) = "Pathologies" (simulated X-ray anomalies)
-    - Classes 0-9 (digits) = "Normal" (healthy scans)
-
-    If pathologies detected, triggers is_emergency flag for priority aggregation.
-    """
-
-    model = Net()
+    """Local training on an IoT edge device with ROS+RUS balancing."""
+    model = Net(num_classes=NUM_CLASSES)
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = _get_device()
     model.to(device)
 
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    trainloader, _ = load_data(partition_id, num_partitions)
 
-    all_labels = []
-    for batch in trainloader:
-        labels = batch["character"]
-        all_labels.extend(labels.tolist())
+    # Let task.py handle all balancing and normalization
+    trainloader, _ = load_data(partition_id, num_partitions, beta=0.8)
 
-    pathology_labels = [label for label in all_labels if label >= 50]
-    is_emergency = len(pathology_labels) > 0
-
-    pathology_classes = sorted(list(set(pathology_labels)))
-
-    train_loss = train_fn(
+    # Train directly
+    train_metrics = train_fn(
         model,
         trainloader,
         context.run_config["local-epochs"],
@@ -56,50 +54,74 @@ def train(msg: Message, context: Context):
         device,
     )
 
+    # Collect class distribution for reporting
+    y_train = trainloader.dataset.tensors[1]
+    class_counts = y_train.sum(dim=0).cpu().numpy().astype(int)
+    active_codes = int((class_counts > 0).sum())
+    num_examples = int(y_train.shape[0])
+
+    # Package response with all required metrics
     model_record = ArrayRecord(model.state_dict())
     metrics = {
-        "train_loss": train_loss,
-        "client_id": context.node_config["partition-id"],
-        "num-examples": len(trainloader.dataset),
-        "is_emergency": int(is_emergency),
-        "pathology_count": len(pathology_labels),
-        "normal_count": len(all_labels) - len(pathology_labels),
+        "train_loss": float(train_metrics["train_loss"]),
+        "train_loss_first_epoch": float(train_metrics.get("train_loss_first_epoch", train_metrics["train_loss"])),
+        "train_loss_last_epoch": float(train_metrics.get("train_loss_last_epoch", train_metrics["train_loss"])),
+        "client_id": int(partition_id),
+        "active_scp_codes": active_codes,
+        "num-examples": num_examples,
+        "training_time_seconds": float(train_metrics.get("training_time_seconds", 0.0)),
     }
 
-    if is_emergency:
-        print(
-            f"{RED}CLIENT {partition_id}: Detected {len(pathology_labels)} pathologies, sending is_emergency={int(is_emergency)}{RESET}")
+    # Free up MPS memory after training
+    if device.type == "mps":
+        torch.mps.empty_cache()
 
-    metric_record = MetricRecord(metrics)
-    content = RecordDict({"arrays": model_record, "metrics": metric_record})
-    return Message(content=content, reply_to=msg)
+    return Message(
+        content=RecordDict({
+            "arrays": model_record,
+            "metrics": MetricRecord(metrics)
+        }),
+        reply_to=msg
+    )
 
 
 @app.evaluate()
 def evaluate(msg: Message, context: Context):
-    """Evaluate the model on local data."""
-
-    model = Net()
+    """Local evaluation on the shared test set."""
+    model = Net(num_classes=NUM_CLASSES)
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = _get_device()
     model.to(device)
 
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
     _, valloader = load_data(partition_id, num_partitions)
 
-    eval_loss, eval_acc = test_fn(
-        model,
-        valloader,
-        device,
-    )
+    eval_result = test_fn(model, valloader, device)
 
     metrics = {
-        "eval_loss": eval_loss,
-        "eval_acc": eval_acc,
-        "num-examples": len(valloader.dataset),
-        "client_id": int(partition_id)
+        "eval_loss": float(eval_result["loss"]),
+        "eval_acc": float(eval_result["accuracy"]),
+        "eval_f1": float(eval_result["f1_macro"]),
+        "eval_f1_weighted": float(eval_result["f1_weighted"]),
+        "eval_precision": float(eval_result["precision_macro"]),
+        "eval_recall": float(eval_result["recall_macro"]),
+        "eval_specificity": float(eval_result["specificity_macro"]),
+        "eval_auc": float(eval_result["auc_macro"]),
+        "num-examples": int(eval_result["num_samples"]),
+        "client_id": int(partition_id),
     }
-    metric_record = MetricRecord(metrics)
-    content = RecordDict({"metrics": metric_record})
-    return Message(content=content, reply_to=msg)
+
+    model_record = ArrayRecord(model.state_dict())
+
+    # Free up MPS memory after evaluation
+    if device.type == "mps":
+        torch.mps.empty_cache()
+
+    return Message(
+        content=RecordDict({
+            "arrays": model_record,
+            "metrics": MetricRecord(metrics)
+        }),
+        reply_to=msg
+    )
