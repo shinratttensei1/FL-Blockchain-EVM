@@ -15,7 +15,7 @@ metrics/
 outputs/
 docs/
 data/
-final_model.pt 
+final_model.pt
 
 # Distribution / packaging
 .Python

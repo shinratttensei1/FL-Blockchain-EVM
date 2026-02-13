@@ -57,44 +57,13 @@ def _plot_bars(m, rnd):
         ax.bar(x + (i - 1.5) * w, m[key], w, label=lbl, color=col)
     ax.set_xticks(x)
     ax.set_xticklabels(SC_NAMES)
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel('Score')
-    ax.set_title(f'Superclass Metrics — Round {rnd}')
-    ax.legend()
-    ax.grid(axis='y', alpha=0.3)
-    plt.savefig(
-        f"outputs/superclass_round_{rnd}.png", dpi=150, bbox_inches='tight')
-    plt.close()
+    # Removed superclass round plot generation
+    pass
 
 
 def _plot_devices(data, rnd, phase):
-    if not data:
-        return
-    n = len(data)
-    labels = [f"Dev {d.get('client_id', i)}" for i, d in enumerate(data)]
-    cols = plt.cm.tab10(np.linspace(0, 1, max(n, 1)))
-
-    if phase == "train":
-        keys = [("train_loss", "Loss"), ("num_examples", "Samples"),
-                ("training_time_seconds", "Time (s)")]
-    else:
-        keys = [("eval_f1", "F1-macro"),
-                ("eval_acc", "Accuracy"), ("eval_auc", "AUC")]
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    fig.suptitle(f"Device {phase.title()} — Round {rnd} ({n} devices)",
-                 fontsize=14, fontweight='bold', y=1.02)
-    for ax, (k, title) in zip(axes, keys):
-        vals = [d.get(k, 0) for d in data]
-        ax.bar(range(n), vals, color=cols)
-        ax.set_xticks(range(n))
-        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
-        ax.set_title(title)
-        ax.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(
-        f"outputs/devices_{phase}_round_{rnd}.png", dpi=150, bbox_inches='tight')
-    plt.close()
+    # Removed device train/eval plot generation
+    pass
 
 
 # ── Global evaluation ──
@@ -175,7 +144,7 @@ def train_metrics_aggregation(metrics_list, weighting_key):
         ["Device", "Loss", "Samples", "Time(s)", "Cls"],
     )
 
-    _plot_devices(data, rnd, "train")
+    # Removed device train plot generation
     with open("outputs/results.json", "a") as f:
         json.dump({"round": rnd, "type": "device_training", "timestamp": datetime.now().isoformat(),
                    "devices": data}, f)
@@ -213,7 +182,7 @@ def weighted_average(metrics_list, weighting_key):
     plot_data = [{"client_id": d["client_id"], "eval_f1": d["eval_f1"],
                   "eval_acc": d["eval_acc"], "eval_auc": d["eval_auc"],
                   "num_examples": int(d["num-examples"])} for d in data]
-    _plot_devices(plot_data, rnd, "eval")
+    # Removed device eval plot generation
 
     with open("outputs/results.json", "a") as f:
         json.dump([{"type": "client_eval", "round": rnd, "timestamp": datetime.now().isoformat(), **d}

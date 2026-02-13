@@ -37,7 +37,7 @@ serverapp = "fl_blockchain_evm.server_app:app"
 clientapp = "fl_blockchain_evm.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 50
+num-server-rounds = 10
 fraction-train = 1.0
 lr = 0.002
 local-epochs = 5
