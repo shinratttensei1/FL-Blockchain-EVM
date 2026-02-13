@@ -37,10 +37,10 @@ serverapp = "fl_blockchain_evm.server_app:app"
 clientapp = "fl_blockchain_evm.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 10
+num-server-rounds = 50
 fraction-train = 1.0
-lr = 0.0003
-local-epochs = 1
+lr = 0.002
+local-epochs = 5
 num-partitions = 10  
 
 # Default federation to use when running the app
