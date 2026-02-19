@@ -1,37 +1,111 @@
-# FL-Blockchain-EVM: A Flower / PyTorch app
 
-## Install dependencies and project
+# FL-Blockchain-EVM: Federated Learning with Blockchain Audit
 
-The dependencies are listed in the `pyproject.toml` and you can install them as follows:
+## Overview
 
+**FL-Blockchain-EVM** is a research framework for federated learning (FL) on medical IoT data, integrating Flower (FL orchestration), PyTorch (deep learning), and an Ethereum-compatible blockchain (for model and audit logging). The project demonstrates privacy-preserving, auditable, and robust FL for healthcare.
+
+
+## Main Components and Code Explanation
+
+### Data Handling and Model (`fl_blockchain_evm/task.py`)
+- **Data Partitioning:** Loads the PTB-XL ECG dataset, partitions it into 10 simulated IoT clients, and applies balancing (ROS+RUS) to address class imbalance.
+- **Augmentation:** Implements realistic ECG augmentations (noise, scaling, temporal shift, baseline wander) to simulate device variability.
+- **Model:** Defines a 1D SE-ResNet (`Net` class) for multi-label ECG classification into 5 superclasses (NORM, MI, STTC, CD, HYP).
+- **Loss Function:** Uses Focal Loss to handle class imbalance.
+- **Training/Evaluation:** Provides `train` and `test` functions for model optimization and metric computation, including per-class and macro metrics.
+
+### Federated Learning Orchestration
+
+#### Server Logic (`fl_blockchain_evm/server_app.py`)
+- **ServerApp:** Entry point for Flower's server process.
+- **Custom Aggregation:** Uses `MedicalFedAvg` to ensure equal weighting for all clients, regardless of data size.
+- **Training/Evaluation Rounds:** Aggregates client updates, evaluates the global model, and logs metrics.
+- **Blockchain Logging:** After each round, writes local, vote, and global model blocks to the blockchain using the `EVMBlockchain` wrapper.
+- **Metrics Logging:** Saves all round metrics to `outputs/results.json` for later analysis and plotting.
+
+#### Client Logic (`fl_blockchain_evm/client_app.py`)
+- **ClientApp:** Entry point for Flower's client process.
+- **Training:** Each client trains the model on its partitioned data and returns model weights and training metrics.
+- **Evaluation:** Each client evaluates the global model on its local validation set and returns evaluation metrics.
+
+#### Custom Strategy (`fl_blockchain_evm/priority_strategy.py`)
+- **MedicalFedAvg:** Subclasses Flower's FedAvg to force equal aggregation weights, ensuring rare-pathology clients are not underrepresented.
+
+### Blockchain Integration
+
+#### Smart Contract (`FLBlockchain.sol`)
+- **SimpleFLBlockchain:** Solidity contract that stores a chain of blocks, each representing a local model, vote, or global model.
+- **Block Structure:** Each block contains round info, type, content hash, previous hash, timestamp, and submitter.
+- **Access Control:** Only authorized clients can submit local blocks; only the owner can submit global/vote blocks.
+- **Chain Verification:** Provides a function to verify the integrity of the chain.
+
+#### Python Blockchain Wrapper (`fl_blockchain_evm/blockchain.py`)
+- **EVMBlockchain:** Handles connection to Ethereum, contract interaction, and transaction management.
+- **Block Submission:** Provides methods to submit local, vote, and global model blocks, serializing relevant data as JSON.
+- **Chain Summary:** Can print and verify the blockchain's integrity.
+
+### Experiment Configuration
+- **`pyproject.toml`:** Central configuration for dependencies, Flower app entry points, and FL hyperparameters (rounds, learning rate, etc.).
+- **`.env`:** Stores sensitive blockchain connection info (RPC URL, private key, contract address).
+
+### Results and Visualization
+- **Metrics Logging:** All training and evaluation metrics are appended to `outputs/results.json`.
+- **Plotting Scripts:**
+  - `plot_results.py`: Generates publication-ready figures (convergence, per-class, per-client, etc.) and a Markdown summary.
+  - `plot_metrics.py`, `plot_training_curves.py`, `plot_distribution.py`: Additional scripts for quick checks and data distribution visualization.
+
+---
+
+## Project Workflow
+
+1. **Install dependencies:**  
+	`pip install -e .`
+2. **Prepare environment:**  
+	- Set up `.env` with blockchain credentials.
+	- Place PTB-XL data in `data/ptb-xl/`.
+3. **Run simulation:**  
+	`flwr run .`
+4. **Visualize results:**  
+	`python plot_results.py` (and other plotting scripts as needed).
+
+---
+
+## Launch Instructions
+
+### 1. Install Dependencies
 ```bash
 pip install -e .
 ```
 
-> **Tip:** Your `pyproject.toml` file can define more than just the dependencies of your Flower app. You can also use it to specify hyperparameters for your runs and control which Flower Runtime is used. By default, it uses the Simulation Runtime, but you can switch to the Deployment Runtime when needed.
-> Learn more in the [TOML configuration guide](https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html).
+### 2. Prepare Environment
+- Ensure `.env` is set with your Ethereum RPC URL, private key, and contract address.
+- Place the PTB-XL dataset in `data/ptb-xl/` as required by the code.
 
-## Run with the Simulation Engine
-
-In the `FL-Blockchain-EVM` directory, use `flwr run` to run a local simulation:
-
+### 3. Run Local Simulation
 ```bash
 flwr run .
 ```
+- This will start a Flower simulation with blockchain logging.
+- Results and blockchain logs will be saved in `outputs/`.
 
-Refer to the [How to Run Simulations](https://flower.ai/docs/framework/how-to-run-simulations.html) guide in the documentation for advice on how to optimize your simulations.
+### 4. Plot Results
+```bash
+python plot_results.py
+```
+- Generates all figures and a Markdown summary in `metrics/`.
 
-## Run with the Deployment Engine
+### 5. (Optional) Plot Data Distribution
+```bash
+python plot_distribution.py
+```
 
-Follow this [how-to guide](https://flower.ai/docs/framework/how-to-run-flower-with-deployment-engine.html) to run the same app in this example but with Flower's Deployment Engine. After that, you might be interested in setting up [secure TLS-enabled communications](https://flower.ai/docs/framework/how-to-enable-tls-connections.html) and [SuperNode authentication](https://flower.ai/docs/framework/how-to-authenticate-supernodes.html) in your federation.
+### 6. (Optional) Plot Training Curves
+```bash
+python plot_training_curves.py
+```
 
-You can run Flower on Docker too! Check out the [Flower with Docker](https://flower.ai/docs/framework/docker/index.html) documentation.
+---
 
-## Resources
-
-- Flower website: [flower.ai](https://flower.ai/)
-- Check the documentation: [flower.ai/docs](https://flower.ai/docs/)
-- Give Flower a ⭐️ on GitHub: [GitHub](https://github.com/adap/flower)
-- Join the Flower community!
-  - [Flower Slack](https://flower.ai/join-slack/)
-  - [Flower Discuss](https://discuss.flower.ai/)
+## Notes
+- For more details, see the code and comments in each script, and refer to the official Flower documentation for advanced usage.

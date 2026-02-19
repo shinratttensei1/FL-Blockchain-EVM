@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 
-contract SimpleFLBlockchain is Ownable, Pausable {
+contract FLBlockchain is Ownable, Pausable {
     
     // ══════════════════════════════════════════════════════════════════════
     // Simple block structure

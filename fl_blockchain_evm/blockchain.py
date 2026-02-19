@@ -1,4 +1,4 @@
-"""Simplified EVM Blockchain wrapper for SimpleFLBlockchain contract."""
+"""Simplified EVM Blockchain wrapper for FLBlockchain contract."""
 
 import os
 import json
@@ -10,7 +10,7 @@ load_dotenv()
 
 
 class EVMBlockchain:
-    """Wrapper for SimpleFLBlockchain smart contract."""
+    """Wrapper for FLBlockchain smart contract."""
 
     def __init__(self):
         # Load config
