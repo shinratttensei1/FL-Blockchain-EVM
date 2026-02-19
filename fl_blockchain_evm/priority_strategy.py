@@ -1,5 +1,3 @@
-"""BLOCK-CARE: Unweighted FedAvg — all devices contribute equally."""
-
 from typing import List, Tuple, Union, Optional, Dict
 from flwr.serverapp.strategy import FedAvg
 from flwr.app import RecordDict

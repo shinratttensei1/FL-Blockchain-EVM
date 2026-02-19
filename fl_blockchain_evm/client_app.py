@@ -1,5 +1,3 @@
-"""BLOCK-CARE: Client App — IoT Medical Edge Device (5 Superclasses)."""
-
 import torch
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
@@ -22,7 +20,6 @@ def train(msg: Message, context: Context):
     device = _dev()
 
     pid = context.node_config["partition-id"]
-    # β=1.0: full equalization per Jimenez et al. §3.5
     trainloader, _ = load_data(pid, context.node_config["num-partitions"], beta=1.0)
 
     m = train_fn(model, trainloader, epochs=context.run_config["local-epochs"],
@@ -53,7 +50,6 @@ def evaluate(msg: Message, context: Context):
     device = _dev()
 
     pid = context.node_config["partition-id"]
-    # β=0: NEVER balance test data — evaluate on real distribution
     _, valloader = load_data(pid, context.node_config["num-partitions"], beta=0)
     r = test_fn(model, valloader, device)
 

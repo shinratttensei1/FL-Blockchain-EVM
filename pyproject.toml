@@ -41,7 +41,6 @@ num-server-rounds = 10
 fraction-train = 1.0
 lr = 0.002
 local-epochs = 5
-num-partitions = 10  
 
 # Default federation to use when running the app
 [tool.flwr.federations]
@@ -49,7 +48,7 @@ default = "local-simulation"
 
 # Local simulation federation with 10 virtual SuperNodes
 [tool.flwr.federations.local-simulation]
-options.num-supernodes = 2
+options.num-supernodes = 10
 
 
 # Remote federation example for use with SuperLink

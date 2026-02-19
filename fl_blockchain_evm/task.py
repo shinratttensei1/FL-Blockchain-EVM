@@ -1,12 +1,4 @@
-"""BLOCK-CARE: PTB-XL 12-Lead ECG → 5 Superclasses (NORM/MI/STTC/CD/HYP).
-
-V4 — Aligned with Jimenez et al. (2024) findings:
-  - ROS+RUS balancing with β=1.0 (full equalization to max class, per paper §3.5)
-  - Focal Loss with aggressive class weights (paper showed weighted loss is key)
-  - 4-stage SE-ResNet (paper showed CNNs outperform for ECG in FL)
-  - Strong augmentation pipeline (compensates for ROS duplicates)
-  - WeightedRandomSampler as secondary balancing (ensures batches are balanced)
-
+"""PTB-XL 12-Lead ECG → 5 Superclasses (NORM/MI/STTC/CD/HYP).
 Paper reference: "Application of FL Techniques for Arrhythmia Classification
 Using 12-Lead ECG Signals", Jimenez et al., arXiv:2208.10993v3, Jan 2024.
 """
@@ -28,7 +20,6 @@ try:
 except ImportError:
     f1_score = precision_score = recall_score = roc_auc_score = None
 
-# ── Label Taxonomy ──
 DIAG_NORM = ["NORM"]
 DIAG_MI = ["IMI", "ASMI", "ILMI", "AMI", "ALMI", "INJAS", "LMI",
            "INJAL", "IPLMI", "IPMI", "INJIN", "INJLA", "PMI", "INJIL"]
@@ -45,10 +36,6 @@ _SCP_TO_SC: Dict[str, int] = {}
 for _i, _codes in enumerate([DIAG_NORM, DIAG_MI, DIAG_STTC, DIAG_CD, DIAG_HYP]):
     for _c in _codes:
         _SCP_TO_SC[_c] = _i
-
-# ══════════════════════════════════════════════════════════════════
-# Focal Loss with strong per-class weighting
-# ══════════════════════════════════════════════════════════════════
 
 
 class FocalLoss(nn.Module):
@@ -77,10 +64,6 @@ def _class_weights(loader):
     freqs = (labels.sum(0).float() + 1) / (labels.shape[0] + 1)
     return (freqs.median() / freqs).clamp(0.5, 20.0)
 
-
-# ══════════════════════════════════════════════════════════════════
-# SE-ResNet Model
-# ══════════════════════════════════════════════════════════════════
 
 class _SEResBlock(nn.Module):
     def __init__(self, ch, ks=5):
@@ -151,16 +134,6 @@ class Net(nn.Module):
         return self.fc(self.drop(self.gap(x).squeeze(-1)))
 
 
-# ══════════════════════════════════════════════════════════════════
-# ROS+RUS Balancing — exact paper formula (Jimenez et al. §3.5)
-#
-# τ = (m_l − m_s) · β   where β ∈ [0,1]
-# β=1 → complete equalization (all classes → m_l samples)
-#
-# Paper showed ROS consistently beat SMOTE and unbalanced:
-#   DNN+ROS: F1=0.61   vs   DNN raw: F1=0.47   (Table 7)
-# ══════════════════════════════════════════════════════════════════
-
 def _balance_ros_rus(X, y, beta=1.0):
     """ROS+RUS per Jimenez et al. 2024, §3.5.
 
@@ -171,7 +144,6 @@ def _balance_ros_rus(X, y, beta=1.0):
 
     With β=1.0: target = m_l (full equalization).
     """
-    # Assign each sample to its PRIMARY class (rarest positive label)
     counts = y.sum(0).astype(int)
     freqs = counts / (counts.sum() + 1e-8)
     primary = np.array([
@@ -179,19 +151,17 @@ def _balance_ros_rus(X, y, beta=1.0):
         if row.sum() > 0 else 0 for row in y
     ])
 
-    # Per-primary-class counts
     pc_counts = np.array([np.sum(primary == c) for c in range(NUM_CLASSES)])
     active_counts = pc_counts[pc_counts > 0]
 
     if len(active_counts) == 0:
         return X, y
 
-    m_l = int(active_counts.max())  # largest class
-    m_s = int(active_counts.min())  # smallest class
+    m_l = int(active_counts.max())
+    m_s = int(active_counts.min())
 
-    # Paper formula: τ = (m_l − m_s) · β
     tau = (m_l - m_s) * beta
-    target = int(m_s + tau)  # β=1 → target = m_l
+    target = int(m_s + tau)
 
     print(f"  [ROS+RUS] m_l={m_l}, m_s={m_s}, β={beta}, target={target}")
     print(f"  [ROS+RUS] Before: {dict(zip(SC_NAMES, pc_counts))}")
@@ -203,10 +173,8 @@ def _balance_ros_rus(X, y, beta=1.0):
             continue
         n = len(idx)
         if n < target:
-            # ROS: random duplication of minority samples
             idx = np.random.choice(idx, target, replace=True)
         elif n > target:
-            # RUS: random elimination of majority samples
             idx = np.random.choice(idx, target, replace=False)
         bX.append(X[idx])
         by.append(y[idx])
@@ -219,14 +187,7 @@ def _balance_ros_rus(X, y, beta=1.0):
     return bX[perm], by[perm]
 
 
-# ══════════════════════════════════════════════════════════════════
-# Augmentation — critical to prevent overfitting from ROS duplicates
-# (Paper §3.5: "exact copies of the minority class samples" is ROS weakness;
-#  augmentation on duplicated samples makes each copy unique)
-# ══════════════════════════════════════════════════════════════════
-
 def _augment(x):
-    """Stochastic ECG augmentations on GPU tensors."""
     # Gaussian noise (simulates sensor noise in IoT devices)
     if torch.rand(1).item() < 0.8:
         x = x + torch.randn_like(x) * 0.05
@@ -237,7 +198,7 @@ def _augment(x):
             torch.rand(x.size(0), x.size(1), 1, device=x.device)
         x = x * scale
 
-    # Temporal shift ±30 samples (simulates timing variation)
+    # Temporal shift ~30 samples (simulates timing variation)
     if torch.rand(1).item() < 0.5:
         shift = torch.randint(-30, 31, (1,)).item()
         if shift > 0:
@@ -254,10 +215,6 @@ def _augment(x):
 
     return x
 
-
-# ══════════════════════════════════════════════════════════════════
-# Data Loading
-# ══════════════════════════════════════════════════════════════════
 
 _DF_CACHE: Dict = {}
 
@@ -306,13 +263,6 @@ def _build_cache(data_dir):
 
 def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
               batch_size: int = 128) -> Tuple[DataLoader, DataLoader]:
-    """Load PTB-XL with paper-aligned ROS+RUS + WeightedRandomSampler.
-
-    Double balancing strategy:
-      1. Static ROS+RUS (Jimenez §3.5): equalizes dataset before training
-      2. WeightedRandomSampler: ensures each BATCH is class-balanced
-         (prevents long runs of NORM-only batches after ROS)
-    """
     data_dir = "data/ptb-xl"
     all_ids, all_sigs, all_labs = _build_cache(data_dir)
     folds = _load_df(data_dir).loc[all_ids, "strat_fold"].values
@@ -331,12 +281,10 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     X_tr, y_tr = all_sigs[my].copy(), all_labs[my].copy()
     X_te, y_te = all_sigs[test_idx].copy(), all_labs[test_idx].copy()
 
-    # Per-lead Z-score normalization (paper §3.3: RobustScaler equivalent)
     mu = X_tr.mean(axis=(0, 2), keepdims=True)
     sd = X_tr.std(axis=(0, 2), keepdims=True) + 1e-8
     X_tr, X_te = (X_tr - mu) / sd, (X_te - mu) / sd
 
-    # ROS+RUS — paper §3.5 with β=1.0 (full equalization)
     if beta > 0:
         X_tr, y_tr = _balance_ros_rus(X_tr, y_tr, beta=beta)
 
@@ -345,8 +293,6 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     X_te_t = torch.tensor(X_te, dtype=torch.float32)
     y_te_t = torch.tensor(y_te, dtype=torch.float32)
 
-    # WeightedRandomSampler: per-sample weight = inverse frequency of its primary class
-    # This ensures balanced mini-batches even after ROS
     primary_classes = y_tr_t.argmax(dim=1).numpy()
     class_counts = np.bincount(
         primary_classes, minlength=NUM_CLASSES).astype(float)
@@ -361,7 +307,7 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     trainloader = DataLoader(
         TensorDataset(X_tr_t, y_tr_t),
         batch_size=batch_size,
-        sampler=sampler,  # replaces shuffle=True
+        sampler=sampler,
         drop_last=True,
     )
     testloader = DataLoader(
@@ -371,10 +317,6 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     return trainloader, testloader
 
 
-# ══════════════════════════════════════════════════════════════════
-# Training
-# ══════════════════════════════════════════════════════════════════
-
 def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
           use_mixup=True, mixup_alpha=0.3):
     net.to(device).train()
@@ -382,7 +324,6 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
     criterion = FocalLoss(alpha=cw, gamma=2.0)
     opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
 
-    # Warm-up 10% then cosine
     total_steps = epochs * len(trainloader)
     warmup = max(total_steps // 10, 1)
 
@@ -427,10 +368,6 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
     }
 
 
-# ══════════════════════════════════════════════════════════════════
-# Evaluation
-# ══════════════════════════════════════════════════════════════════
-
 def test(net, testloader, device=torch.device("cpu")):
     if len(testloader) == 0:
         return _empty()
@@ -450,7 +387,6 @@ def test(net, testloader, device=torch.device("cpu")):
     probs, labels = np.vstack(all_p), np.vstack(all_l)
     N = len(labels)
 
-    # Fine threshold grid
     thresholds = np.full(NUM_CLASSES, 0.5)
     for c in range(NUM_CLASSES):
         if labels[:, c].sum() == 0:
