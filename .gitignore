@@ -14,7 +14,8 @@ __pycache__/
 metrics/
 outputs/
 docs/
-final_model.pt 
+data/
+final_model.pt
 
 # Distribution / packaging
 .Python

@@ -1,210 +1,296 @@
-"""FL-Blockchain-EVM: A Flower / PyTorch app with Priority-Based Aggregation."""
-
-from datetime import datetime
-import json
 import torch
+import numpy as np
+import json
+import os
+from typing import List, Dict
+from datetime import datetime
+import matplotlib.pyplot as plt
+from fl_blockchain_evm.priority_strategy import MedicalFedAvg
+from fl_blockchain_evm.task import Net, test as test_fn, load_data, NUM_CLASSES, SC_NAMES
+from fl_blockchain_evm.blockchain import EVMBlockchain as FLBlockchain
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord, RecordDict
 from flwr.serverapp import Grid, ServerApp
-from fl_blockchain_evm.task import Net, test as test_fn, load_data as load_server_data
-from typing import List
-from fl_blockchain_evm.priority_strategy import PriorityMedicalFedAvg
+import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')
 
-# ANSI Color codes
-RED = '\033[91m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-RESET = '\033[0m'
+G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
+os.makedirs("outputs", exist_ok=True)
+
+SC_LABELS = ['NORM', 'MI (Infarction)', 'STTC (ST/T)',
+             'CD (Conduction)', 'HYP (Hypertrophy)']
+
+_blockchain = FLBlockchain()
+
+_round_state: Dict = {
+    # List of {client_id, loss, samples, ...} from this round
+    "train_results": [],
+    "current_round": 0,
+}
 
 
-def global_evaluate(server_round: int, arrays: ArrayRecord, config: ConfigRecord = None):
+def _dev():
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def _plot_cm(cm, rnd, acc, f1):
+    if isinstance(cm, list):
+        cm = np.array(cm)
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='.0f', cmap='Blues',
+                xticklabels=SC_LABELS, yticklabels=SC_LABELS)
+    plt.title(f'Confusion Matrix — Round {rnd}\nAcc: {acc:.2%} | F1: {f1:.4f}')
+    plt.ylabel('True')
+    plt.xlabel('Predicted')
+    plt.savefig(f"outputs/cm_round_{rnd}.png", dpi=150, bbox_inches='tight')
+    plt.close()
+
+
+def global_evaluate(server_round, arrays, config=None):
     model = Net()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = _dev()
+
     model.load_state_dict(arrays.to_torch_state_dict())
-    model.to(device)
+    model.to(dev)
 
-    _, server_testloader = load_server_data(partition_id=0, num_partitions=1)
-    loss, accuracy = test_fn(model, server_testloader, device)
+    _, testloader = load_data(0, 10, beta=0)
 
-    global_result = {
+    m = test_fn(model, testloader, dev)
+
+    print(f"\n{Y}{'═'*60}{R}")
+    print(f"{Y}  [ROUND {server_round}] GLOBAL — 5 Superclasses{R}")
+    print(f"{Y}{'═'*60}{R}")
+
+    for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
+              "precision_macro", "recall_macro", "specificity_macro", "auc_macro"]:
+        print(f"   {k:20s}: {m[k]:.4f}")
+
+    print(f"   {'── Per-Superclass ──':20s}")
+    for i, sc in enumerate(SC_NAMES):
+        print(f"     {sc:5s}  P={m['per_class_precision'][i]:.3f}  "
+              f"R={m['per_class_recall'][i]:.3f}  "
+              f"F1={m['per_class_f1'][i]:.3f}  "
+              f"AUC={m['per_class_auc'][i]:.3f}  "
+              f"(n={m['per_class_support'][i]})")
+
+    _plot_cm(m["confusion_matrix"], server_round, m["accuracy"], m["f1_macro"])
+
+    num_clients = len(_round_state["train_results"])
+
+    _blockchain.add_global_model_block(
+        fl_round=server_round,
+        model_state_dict=arrays.to_torch_state_dict(),  # Aggregated weights
+        accuracy=m["accuracy"],
+        f1_macro=m["f1_macro"],
+        auc_macro=m["auc_macro"],
+        loss=m["loss"],
+        num_clients=num_clients,
+    )
+
+    _round_state["train_results"] = []
+
+    summary = _blockchain.get_round_summary(server_round)
+    print(f"\n{C}  [BLOCKCHAIN] Round {server_round} summary: "
+          f"{summary['local_models']} local blocks | "
+          f"{summary['accepted']} accepted | "
+          f"{summary['rejected']} rejected | "
+          f"1 global block{R}")
+
+    log = {k: m[k] for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
+           "precision_macro", "recall_macro", "specificity_macro", "auc_macro",
+                             "per_class_f1", "per_class_precision", "per_class_recall",
+                             "per_class_auc", "per_class_support", "confusion_matrix",
+                             "num_samples", "num_classes"]}
+    log.update({
         "round": server_round,
         "type": "global",
-        "accuracy": float(accuracy),
-        "loss": float(loss),
-        "timestamp": datetime.now().isoformat()
-    }
+        "timestamp": datetime.now().isoformat(),
+        "superclass_names": SC_NAMES,
+        "optimal_thresholds": m.get("optimal_thresholds", [0.5] * 5),
+        "blockchain_blocks": summary["total_blocks"],  # How many blocks so far
+    })
 
     with open("outputs/results.json", "a") as f:
-        json.dump(global_result, f)
+        json.dump(log, f)
         f.write("\n")
 
-    return {"loss": loss, "accuracy": accuracy}
+    return {
+        "loss": m["loss"],
+        "accuracy": m["accuracy"],
+        "f1_macro": m["f1_macro"],
+        "auc_macro": m["auc_macro"],
+    }
 
 
-# Create ServerApp
+_rnd = {"train": 0, "eval": 0}
+
+
+def _print_table(header, rows, cols):
+    widths = [max(len(str(r[i]))
+                  for r in [header] + rows) + 2 for i in range(len(cols))]
+    sep = "+" + "+".join("-" * w for w in widths) + "+"
+    def _row(r): return "|" + \
+        "|".join(str(r[i]).center(w) for i, w in enumerate(widths)) + "|"
+    print(sep)
+    print(_row(header))
+    print(sep)
+    for r in rows:
+        print(_row(r))
+    print(sep)
+
+
+def train_metrics_aggregation(metrics_list, weighting_key):
+    _rnd["train"] += 1
+    rnd = _rnd["train"]
+    _round_state["current_round"] = rnd
+
+    data = []
+    for m in sorted(metrics_list, key=lambda x: int(x["metrics"].get("client_id", 0))):
+        met = m["metrics"]
+        data.append({
+            "client_id":        int(met.get("client_id", 0)),
+            "train_loss":       float(met.get("train_loss", 0)),
+            "num_examples":     int(met.get("num-examples", 0)),
+            "training_time_seconds": float(met.get("training_time_seconds", 0)),
+            "active_classes":   int(met.get("active_classes", 0)),
+        })
+
+    _round_state["train_results"] = data
+
+    print(f"\n{C}  ROUND {rnd} TRAINING: {len(data)} devices{R}")
+    _print_table(
+        ["Device", "Loss", "Samples", "Time(s)", "Cls"],
+        [[d["client_id"], f"{d['train_loss']:.4f}", d["num_examples"],
+          f"{d['training_time_seconds']:.1f}", d["active_classes"]] for d in data],
+        ["Device", "Loss", "Samples", "Time(s)", "Cls"],
+    )
+
+    print(f"\n{C}  [BLOCKCHAIN] Recording {len(data)} local model blocks...{R}")
+
+    losses = [d["train_loss"] for d in data]
+    loss_mean = float(np.mean(losses))
+    loss_std = float(np.std(losses)) if len(losses) > 1 else 0.0
+    threshold = loss_mean + loss_std
+
+    for d in data:
+        _blockchain.add_local_model_block(
+            fl_round=rnd,
+            client_id=d["client_id"],
+            model_state_dict={
+                f"client_{d['client_id']}_round_{rnd}": d["train_loss"]},
+            train_loss=d["train_loss"],
+            num_examples=d["num_examples"],
+            training_time=d["training_time_seconds"],
+            active_classes=d["active_classes"],
+        )
+        accepted = d["train_loss"] <= threshold
+        reason = "loss within threshold" if accepted else f"loss {d['train_loss']:.4f} > threshold {threshold:.4f}"
+        _blockchain.add_vote_block(
+            fl_round=rnd,
+            client_id=d["client_id"],
+            vote=accepted,
+            reason=reason,
+            loss=d["train_loss"],
+        )
+
+    with open("outputs/results.json", "a") as f:
+        json.dump({
+            "round": rnd,
+            "type": "device_training",
+            "timestamp": datetime.now().isoformat(),
+            "devices": data,
+        }, f)
+        f.write("\n")
+
+    return MetricRecord({
+        "train_loss_avg": float(np.mean([d["train_loss"] for d in data])),
+        "num_devices": float(len(data)),
+    })
+
+
+def weighted_average(metrics_list, weighting_key):
+    _rnd["eval"] += 1
+    rnd = _rnd["eval"]
+    total = sum(int(m["metrics"]["num-examples"]) for m in metrics_list)
+    if total == 0:
+        return MetricRecord({"eval_acc": 0.0, "eval_f1": 0.0})
+
+    def wavg(k): return sum(
+        float(m["metrics"][k]) * int(m["metrics"]["num-examples"])
+        for m in metrics_list) / total
+
+    data = []
+    for m in sorted(metrics_list, key=lambda x: int(x["metrics"]["client_id"])):
+        met = m["metrics"]
+        data.append({k: float(met[k]) if k != "client_id" else int(met[k])
+                     for k in ["client_id", "eval_loss", "eval_acc",
+                               "eval_f1", "eval_auc", "num-examples"]})
+
+    print(f"\n{G}  ROUND {rnd} EVALUATION: {len(data)} devices{R}")
+    _print_table(
+        ["Device", "Loss", "Acc", "F1", "AUC", "N"],
+        [[d["client_id"], f"{d['eval_loss']:.4f}", f"{d['eval_acc']:.4f}",
+          f"{d['eval_f1']:.4f}", f"{d['eval_auc']:.4f}", int(d["num-examples"])]
+         for d in data],
+        ["Device", "Loss", "Acc", "F1", "AUC", "N"],
+    )
+
+    with open("outputs/results.json", "a") as f:
+        json.dump([{
+            "type": "client_eval",
+            "round": rnd,
+            "timestamp": datetime.now().isoformat(),
+            **d,
+        } for d in data], f)
+        f.write("\n")
+
+    return MetricRecord({k: wavg(k) for k in
+                         ["eval_acc", "eval_f1", "eval_f1_weighted",
+                          "eval_precision", "eval_recall",
+                          "eval_specificity", "eval_auc"]})
+
+
 app = ServerApp()
 
 
 @app.main()
-def main(grid: Grid, context: Context) -> None:
-    """Main entry point for the ServerApp."""
+def main(grid: Grid, context: Context):
+    lr = context.run_config["lr"]
+    num_rounds = context.run_config["num-server-rounds"]
+    frac = context.run_config["fraction-train"]
 
-    # Read run config
-    fraction_train: float = context.run_config["fraction-train"]
-    num_rounds: int = context.run_config["num-server-rounds"]
-    lr: float = context.run_config["lr"]
+    if os.path.exists("outputs/results.json"):
+        os.remove("outputs/results.json")
 
-    # Load global model
-    global_model = Net()
-    arrays = ArrayRecord(global_model.state_dict())
-
-    # Initialize Priority-Based Medical FedAvg strategy
-    # Emergency clients receive 2x weight (e=2.0) for "Emergency Acuity"
-    strategy = PriorityMedicalFedAvg(
-        fraction_train=fraction_train,
+    model = Net()
+    strategy = MedicalFedAvg(
+        fraction_train=frac,
+        train_metrics_aggr_fn=train_metrics_aggregation,
         evaluate_metrics_aggr_fn=weighted_average,
-        emergency_multiplier=2.0,  # Priority weight for emergency updates
-        alert_log_path="outputs/emergency_alerts.json",  # Immutable audit trail
     )
 
-    # Set the train_metrics_aggr_fn with access to strategy
-    strategy.train_metrics_aggr_fn = lambda metrics, key: weighted_loss_average(
-        metrics, key, strategy)
+    print(f"\n{C}{'═'*60}")
+    print(f"  5 Superclasses: {', '.join(SC_NAMES)}")
+    print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {_dev()}")
+    print(f"  Ledger: outputs/blockchain_ledger.json")
+    print(f"{'═'*60}{R}\n")
 
-    # Start strategy
     result = strategy.start(
         grid=grid,
-        initial_arrays=arrays,
+        initial_arrays=ArrayRecord(model.state_dict()),
         train_config=ConfigRecord({"lr": lr}),
         num_rounds=num_rounds,
         evaluate_fn=global_evaluate,
     )
 
-    print("\n" + "="*60)
-    print(f"{GREEN}--- Final Results ---{RESET}")
-    print("="*60)
+    _blockchain.print_chain_summary()
 
-    if result.evaluate_metrics_clientapp:
-        # Get the latest round's metrics
-        last_round = max(result.evaluate_metrics_clientapp.keys())
-        final_metrics = result.evaluate_metrics_clientapp[last_round]
-
-        print(
-            f"{GREEN}Final Aggregated Accuracy (Round {last_round}): {final_metrics['accuracy']}{RESET}")
-    else:
-        print("No distributed evaluation metrics found.")
-
-    # Display emergency alert statistics
-    print(f"\n{GREEN}--- Emergency Alert Statistics ---{RESET}")
-    print(f"{GREEN}Total emergency alerts detected: {strategy.total_emergency_count}{RESET}")
-    print(
-        f"{GREEN}Rounds with emergencies: {len([c for c in strategy.round_emergency_count.values() if c > 0])}{RESET}")
-    if strategy.round_emergency_count:
-        for round_num, count in sorted(strategy.round_emergency_count.items()):
-            if count > 0:
-                print(
-                    f"{GREEN}  Round {round_num}: {count} emergency client(s){RESET}")
-    print(f"{GREEN}Emergency multiplier used: {strategy.emergency_multiplier}x{RESET}")
-    print(f"{GREEN}Alert log saved to: {strategy.alert_log_path}{RESET}")
-
-    print(f"\n{GREEN}Saving final model to disk...{RESET}")
-    state_dict = result.arrays.to_torch_state_dict()
-    torch.save(state_dict, "final_model.pt")
-    print(f"{GREEN}Model saved successfully!{RESET}")
-
-
-def weighted_average(metrics: List[RecordDict], weighting_key: str) -> MetricRecord:
-    round_results = []
-    total_examples = sum(int(m["metrics"]["num-examples"]) for m in metrics)
-
-    for m in metrics:
-        cid = m["metrics"].get("client_id", "Unknown")
-        acc = m["metrics"]["eval_acc"]
-
-        round_results.append({
-            "client_id": cid,
-            "accuracy": float(acc),
-            "samples": int(m["metrics"]["num-examples"]),
-            "timestamp": datetime.now().isoformat()
-        })
-        print(f"Client {cid} -> Accuracy: {acc:.4f}")
-
-    with open("outputs/results.json", "a") as f:
-        json.dump(round_results, f)
-        f.write("\n")
-
-    weighted_acc = sum(float(m["accuracy"]) * m["samples"]
-                       for m in round_results) / total_examples
-    return MetricRecord({"accuracy": weighted_acc})
-
-
-def weighted_loss_average(metrics: List[RecordDict], weighting_key: str, strategy: PriorityMedicalFedAvg = None) -> MetricRecord:
-    """Aggregate training metrics with priority weighting for emergencies.
-
-    This function is called by Flower to aggregate training metrics from clients.
-    We apply emergency detection and priority weighting here.
-    """
-    # Extract emergency information and apply priority multiplier
-    emergency_multiplier = 2.0 if strategy is None else strategy.emergency_multiplier
-    emergency_count = 0
-    total_pathologies = 0
-    emergency_clients = []
-    normal_clients = []
-
-    # Get current round from strategy if available
-    current_round = getattr(strategy, '_current_round', 0) if strategy else 0
-
-    weighted_loss_sum = 0.0
-    total_effective_weight = 0.0
-
-    for m in metrics:
-        client_metrics = m["metrics"]
-        num_examples = int(client_metrics["num-examples"])
-        train_loss = float(client_metrics["train_loss"])
-        client_id = client_metrics.get("client_id", "unknown")
-
-        # Check for emergency (sent as int: 1=yes, 0=no)
-        is_emergency = bool(client_metrics.get("is_emergency", 0))
-
-        # Apply priority multiplier for emergencies
-        if is_emergency:
-            effective_weight = num_examples * emergency_multiplier
-            emergency_count += 1
-            pathology_count = client_metrics.get("pathology_count", 0)
-            total_pathologies += pathology_count
-
-            emergency_clients.append({
-                "client_id": client_id,
-                "num_examples": num_examples,
-                "effective_weight": effective_weight,
-                "pathology_count": pathology_count,
-            })
-
-            print(
-                f"{RED}[EMERGENCY] Client {client_id} - {pathology_count} pathologies, weight {num_examples} → {effective_weight}{RESET}")
-        else:
-            effective_weight = num_examples
-            normal_clients.append({
-                "client_id": client_id,
-                "num_examples": num_examples,
-                "effective_weight": effective_weight,
-            })
-
-        weighted_loss_sum += train_loss * effective_weight
-        total_effective_weight += effective_weight
-
-    weighted_loss = weighted_loss_sum / \
-        total_effective_weight if total_effective_weight > 0 else 0.0
-
-    # Log emergency statistics
-    if emergency_count > 0:
-        print(
-            f"\n{RED}[Round Summary] {emergency_count}/{len(metrics)} clients with emergencies ({total_pathologies} total pathologies){RESET}")
-
-        # Log to file if strategy is available
-        if strategy:
-            strategy._log_emergency_alert(
-                current_round, emergency_clients, normal_clients)
-            strategy.total_emergency_count += emergency_count
-            strategy.round_emergency_count[current_round] = emergency_count
-
-    return MetricRecord({"train_loss": weighted_loss})
+    torch.save(result.arrays.to_torch_state_dict(), "final_model.pt")
+    print(f"\n{G}   Done. Model -> final_model.pt")
+    print(f"    Metrics -> outputs/results.json")
+    print(f"    Ledger  -> outputs/blockchain_ledger.json{R}")

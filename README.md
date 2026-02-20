@@ -1,37 +1,433 @@
-# FL-Blockchain-EVM: A Flower / PyTorch app
+# Blockchain-Based Federated Learning for ECG Superclass Classification
 
-## Install dependencies and project
+> **Course project** — Federated learning over the PTB-XL dataset with an Ethereum smart-contract ledger for auditability and tamper-proof model tracking.
 
-The dependencies are listed in the `pyproject.toml` and you can install them as follows:
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [System Architecture](#system-architecture)
+3. [Project Structure](#project-structure)
+4. [How It Works](#how-it-works)
+   - [The Model](#the-model)
+   - [Data Pipeline](#data-pipeline)
+   - [Federated Learning Loop](#federated-learning-loop)
+   - [Blockchain Ledger](#blockchain-ledger)
+   - [Voting & Filtering](#voting--filtering)
+5. [Research Background](#research-background)
+6. [Requirements](#requirements)
+7. [Setup & Installation](#setup--installation)
+8. [Configuration](#configuration)
+9. [Launching the Experiment](#launching-the-experiment)
+10. [Outputs](#outputs)
+11. [Smart Contract](#smart-contract)
+12. [Limitations & Future Work](#limitations--future-work)
+
+---
+
+## Overview
+
+This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Sepolia testnet) via a custom Solidity smart contract.
+
+**Clinical task:** Classify each ECG recording into one or more of **5 superclasses** defined by the PTB-XL standard:
+
+| Code | Superclass | Example diagnoses |
+|------|-----------|-------------------|
+| NORM | Normal | — |
+| MI | Myocardial Infarction | IMI, AMI, ASMI … |
+| STTC | ST/T-Change | NDT, ISC\_, ISCAL … |
+| CD | Conduction Disturbance | LBBB, RBBB, WPW … |
+| HYP | Hypertrophy | LVH, RVH … |
+
+The dataset is partitioned across **10 simulated clients**, each training a local model on its own shard. A central server aggregates the models each round, evaluates the global model, and writes an immutable summary to the blockchain.
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Flower Framework                        │
+│                                                              │
+│  ┌──────────┐  ┌──────────┐      ┌──────────┐              │
+│  │ Client 0 │  │ Client 1 │ ...  │ Client 9 │              │
+│  │ (train)  │  │ (train)  │      │ (eval)   │              │
+│  └────┬─────┘  └────┬─────┘      └────┬─────┘              │
+│       │              │                │                      │
+│       └──────────────┴────────────────┘                      │
+│                       │  model weights                       │
+│               ┌───────▼────────┐                            │
+│               │  Server App    │                            │
+│               │  MedicalFedAvg │                            │
+│               │  (aggregate)   │                            │
+│               └───────┬────────┘                            │
+│                       │                                      │
+└───────────────────────┼─────────────────────────────────────┘
+                        │ write events
+              ┌─────────▼──────────┐
+              │   EVMBlockchain     │
+              │   (blockchain.py)   │
+              └─────────┬──────────┘
+                        │ web3 tx
+              ┌─────────▼──────────┐
+              │  SimpleFLBlockchain │
+              │   (Solidity, EVM)   │
+              │   Sepolia testnet   │
+              └────────────────────┘
+```
+
+---
+
+## Project Structure
+
+```
+fl_blockchain_evm/
+├── task.py                  # Dataset, model definition, train/test logic
+├── client_app.py            # Flower client (train + evaluate handlers)
+├── server_app.py            # Flower server (aggregation, evaluation, blockchain writes)
+├── blockchain.py            # Web3 wrapper for the smart contract
+├── priority_strategy.py     # MedicalFedAvg — equal-weight aggregation strategy
+│
+├── SimpleFLBlockchain.sol   # Solidity smart contract (deployed via Remix IDE)
+├── FLBlockchain_abi.json    # ABI copied from Remix after deployment
+│
+├── data/
+│   └── ptb-xl/              # PTB-XL dataset (downloaded separately)
+│
+├── outputs/                 # Auto-created at runtime
+│   ├── results.json         # Per-round training & evaluation metrics (JSONL)
+│   └── cm_round_N.png       # Confusion matrix plots per round
+│
+├── final_model.pt           # Saved global model weights after all rounds
+│
+├── .env                     # Secrets (not committed)
+├── pyproject.toml           # Flower project config & hyperparameters
+└── README.md
+```
+
+---
+
+## How It Works
+
+### The Model
+
+**`Net`** (`task.py`) is a 4-stage **SE-ResNet** (Squeeze-and-Excitation Residual Network) for 1-D time-series:
+
+```
+Input: (B, 12, 1000)   — batch × 12 leads × 1000 time-steps @ 100 Hz
+  └─ InputBN
+  └─ Stage 1: Conv1d(12→32, k=15) → BN → ReLU → MaxPool(4) → 2× SEResBlock(32, k=7)
+  └─ Stage 2: Conv1d(32→64, k=7)  → BN → ReLU → MaxPool(4) → 2× SEResBlock(64, k=5)
+  └─ Stage 3: Conv1d(64→128, k=5) → BN → ReLU → MaxPool(2) → 2× SEResBlock(128, k=3)
+  └─ Stage 4: Conv1d(128→256, k=3)→ BN → ReLU → MaxPool(2) → 1× SEResBlock(256, k=3)
+  └─ GlobalAvgPool → Dropout(0.3) → Linear(256→5)
+Output: (B, 5) raw logits  — multi-label sigmoid classification
+```
+
+~200K parameters. The SE block applies per-channel attention after each residual pair.
+
+**Loss:** `FocalLoss` (γ=2, class-frequency alpha weights) — addresses the severe class imbalance in PTB-XL (NORM ≫ HYP/MI).
+
+**Optimizer:** `AdamW` with cosine-annealing LR schedule and a linear warm-up for the first 10% of steps.
+
+**Training augmentations** (applied per mini-batch):
+- Gaussian noise (σ=0.05, p=0.8)
+- Per-lead amplitude scaling (×0.8–1.2, p=0.5)
+- Temporal shift (±30 samples, p=0.5)
+- Baseline wander (sinusoidal, p=0.3)
+- Mixup (α=0.3)
+
+### Data Pipeline
+
+PTB-XL uses the official 10-fold stratified split:
+
+- **Folds 1–8** → training set (partitioned across clients)
+- **Folds 9–10** → held-out test set (used for global evaluation only)
+
+Each client receives a **sequential shard** of the shuffled training set (seed=42). Per-client z-score normalization is applied using that client's own training statistics.
+
+To address the multi-label class imbalance, each client applies **ROS+RUS** (Random Over/Under Sampling) before training:
+
+```
+target = m_s + (m_l - m_s) × β      (β=1.0 → full equalization)
+```
+
+where `m_l` = largest class count, `m_s` = smallest class count. Under-represented classes are oversampled; over-represented classes are subsampled. A `WeightedRandomSampler` further reinforces balance during batching.
+
+**Threshold optimization:** At evaluation time, per-class thresholds are tuned over `[0.05, 0.95]` in 0.02 steps to maximize per-class F1 (rather than using a fixed 0.5).
+
+### Federated Learning Loop
+
+Each round:
+
+1. **Server** broadcasts the current global model weights to all selected clients.
+2. **Each client** receives the weights, fine-tunes for `local-epochs` using its local shard, and returns the updated weights + scalar metrics (loss, samples, training time, active classes).
+3. **Server** aggregates via `MedicalFedAvg` — a `FedAvg` variant that forces equal contribution weight (`weight=1`) for every client regardless of shard size, preventing large-shard clients from dominating.
+4. **Global evaluation** is performed on the held-out test set (partition 0 used as proxy for the full test set).
+5. **Blockchain** records three block types for the round (see below).
+
+### Blockchain Ledger
+
+`EVMBlockchain` (`blockchain.py`) wraps the deployed Solidity contract via **web3.py**. Every round writes the following blocks on-chain:
+
+| Block type | When written | Payload stored |
+|------------|-------------|----------------|
+| `LOCAL` | After each client trains | `client_id`, `train_loss`, `num_examples`, `training_time`, `active_classes` |
+| `VOTE` | After each client's LOCAL block | `client_id`, `vote` (ACCEPTED/REJECTED), `reason`, `loss` |
+| `GLOBAL` | After global evaluation | `accuracy`, `f1_macro`, `auc_macro`, `loss`, `num_clients` |
+
+The chain can be integrity-verified at any time via `verifyChain()` on the contract — each block stores the `keccak256` hash of its predecessor.
+
+### Voting & Filtering
+
+Before writing VOTE blocks, the server computes a per-round loss threshold:
+
+```python
+threshold = mean(train_losses) + std(train_losses)
+```
+
+Clients whose `train_loss > threshold` are marked **REJECTED** on-chain. This is a simple statistical outlier filter — clients with anomalously high loss (potential data quality issues or poisoning) are flagged for auditability, though all clients still contribute to aggregation in this implementation.
+
+---
+
+## Research Background
+
+This project draws conceptually from three papers:
+
+- **SPBFL-IoV** (Ullah et al., *Computer Networks* 2025) — blockchain integration in FL for tamper-proof model update recording; filtering/clipping mechanisms for poisoning defense.
+- **BFMIL** (Wu et al., *Computers & Electrical Engineering* 2026) — three-block on-chain storage structure (local model blocks, vote score blocks, global model blocks); equal-weight aggregation for non-IID data.
+- **BCS+DL** (Pajila et al., *Peer-to-Peer Networking and Applications* 2026) — blockchain security scheme for distributed learning systems.
+
+The key differences from these works: this project does **not** implement homomorphic encryption, metric/triplet loss, or deep-learning-based anomaly detection. The on-chain filtering is simpler (loss threshold vs. Euclidean distance from global model), and the target domain is 12-lead ECG classification rather than image classification or WSN security.
+
+---
+
+## Requirements
+
+### Python
+
+```
+python >= 3.10
+flwr >= 1.10
+torch >= 2.0
+web3 >= 6.0
+wfdb
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+python-dotenv
+```
+
+### Other
+
+- Sepolia testnet ETH (from a faucet) for gas fees
+- An Alchemy or Infura RPC endpoint for Sepolia
+
+---
+
+## Setup & Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/fl-blockchain-ecg.git
+cd fl-blockchain-ecg
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Linux / macOS
+# .venv\Scripts\activate         # Windows
+```
+
+### 3. Install Python dependencies
 
 ```bash
 pip install -e .
+# or
+pip install flwr torch web3 wfdb numpy pandas scikit-learn matplotlib seaborn python-dotenv
 ```
 
-> **Tip:** Your `pyproject.toml` file can define more than just the dependencies of your Flower app. You can also use it to specify hyperparameters for your runs and control which Flower Runtime is used. By default, it uses the Simulation Runtime, but you can switch to the Deployment Runtime when needed.
-> Learn more in the [TOML configuration guide](https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html).
+### 4. Download PTB-XL manually
 
-## Run with the Simulation Engine
+1. Go to [https://physionet.org/content/ptb-xl/1.0.3/](https://physionet.org/content/ptb-xl/1.0.3/) and create a free PhysioNet account if you don't have one.
+2. Download the full dataset ZIP (≈ 1.7 GB).
+3. Extract it so the structure looks like this:
 
-In the `FL-Blockchain-EVM` directory, use `flwr run` to run a local simulation:
+```
+data/
+└── ptb-xl/
+    ├── ptbxl_database.csv
+    ├── scp_statements.csv
+    ├── records100/
+    │   ├── 00000/
+    │   └── ...
+    └── records500/
+        ├── 00000/
+        └── ...
+```
+
+> The code uses the **100 Hz** version (`records100` / `filename_lr` column). Make sure the `data/ptb-xl/` folder is at the project root.
+
+A numpy cache will be built automatically on the first run and saved to `data/ptb-xl/.cache/` to speed up subsequent runs.
+
+### 5. Deploy the smart contract with Remix
+
+No Hardhat or local Node setup is needed. The contract is deployed directly from the browser using [Remix IDE](https://remix.ethereum.org).
+
+1. Open [https://remix.ethereum.org](https://remix.ethereum.org).
+2. Create a new file and paste the contents of `SimpleFLBlockchain.sol`.
+3. In the **Solidity Compiler** tab, select compiler version `0.8.20` and compile.
+4. In the **Deploy & Run Transactions** tab:
+   - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Sepolia**).
+   - Click **Deploy**.
+5. After deployment, copy the **contract address** from the Remix console.
+6. In the **Compilation Details** panel, copy the **ABI** and save it as `FLBlockchain_abi.json` in the project root.
+
+> **Note:** You need Sepolia testnet ETH for gas. Get some from [sepoliafaucet.com](https://sepoliafaucet.com) or the [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia).
+
+### 6. Configure environment variables
+
+Create a `.env` file in the project root (never commit this file):
+
+```env
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<YOUR_API_KEY>
+PRIVATE_KEY=0x<YOUR_WALLET_PRIVATE_KEY>
+CONTRACT_ADDRESS=0x<DEPLOYED_CONTRACT_ADDRESS>
+```
+
+---
+
+## Configuration
+
+All FL hyperparameters live in `pyproject.toml`:
+
+```toml
+[tool.flwr.app.config]
+num-server-rounds = 5
+fraction-train   = 1.0      # fraction of clients selected per round
+local-epochs     = 3
+lr               = 2e-3
+```
+
+Partition count is set in the `[tool.flwr.federations.local-simulation]` section:
+
+```toml
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 10
+```
+
+---
+
+## Launching the Experiment
+
+All commands assume you are in the project root with the virtual environment activated and `.env` populated.
+
+### Run with Flower simulation (recommended for local testing)
 
 ```bash
 flwr run .
 ```
 
-Refer to the [How to Run Simulations](https://flower.ai/docs/framework/how-to-run-simulations.html) guide in the documentation for advice on how to optimize your simulations.
+This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Sepolia, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
 
-## Run with the Deployment Engine
 
-Follow this [how-to guide](https://flower.ai/docs/framework/how-to-run-flower-with-deployment-engine.html) to run the same app in this example but with Flower's Deployment Engine. After that, you might be interested in setting up [secure TLS-enabled communications](https://flower.ai/docs/framework/how-to-enable-tls-connections.html) and [SuperNode authentication](https://flower.ai/docs/framework/how-to-authenticate-supernodes.html) in your federation.
 
-You can run Flower on Docker too! Check out the [Flower with Docker](https://flower.ai/docs/framework/docker/index.html) documentation.
+### Verify blockchain integrity after the run
 
-## Resources
+```python
+from fl_blockchain_evm.blockchain import EVMBlockchain
+bc = EVMBlockchain()
+print("Chain valid:", bc.verify_chain())
+print("Total blocks:", bc.get_chain_length())
+bc.print_chain_summary()
+```
 
-- Flower website: [flower.ai](https://flower.ai/)
-- Check the documentation: [flower.ai/docs](https://flower.ai/docs/)
-- Give Flower a ⭐️ on GitHub: [GitHub](https://github.com/adap/flower)
-- Join the Flower community!
-  - [Flower Slack](https://flower.ai/join-slack/)
-  - [Flower Discuss](https://discuss.flower.ai/)
+---
+
+## Outputs
+
+After a successful run the following files are created:
+
+```
+outputs/
+├── results.json          # JSONL — one JSON object per line, types:
+│                         #   "device_training"  — per-round client metrics
+│                         #   "client_eval"      — per-round client evaluation
+│                         #   "global"           — global evaluation per round
+├── cm_round_1.png        # Confusion matrix heatmap, round 1
+├── cm_round_2.png        # ...
+└── cm_round_N.png
+
+final_model.pt            # PyTorch state dict of the final global model
+```
+
+### Reading results
+
+```python
+import json
+
+with open("outputs/results.json") as f:
+    records = [json.loads(line) for line in f if line.strip()]
+
+global_rounds = [r for r in records if r["type"] == "global"]
+for r in global_rounds:
+    print(f"Round {r['round']:2d} | "
+          f"Acc={r['accuracy']:.3f} | "
+          f"F1={r['f1_macro']:.3f} | "
+          f"AUC={r['auc_macro']:.3f}")
+```
+
+### Reloading the final model
+
+```python
+import torch
+from fl_blockchain_evm.task import Net
+
+model = Net()
+model.load_state_dict(torch.load("final_model.pt", map_location="cpu"))
+model.eval()
+```
+
+---
+
+## Smart Contract
+
+**`SimpleFLBlockchain.sol`** — deployed on Ethereum Sepolia testnet.
+
+Inherits from OpenZeppelin's `Ownable` and `Pausable`. Key design decisions:
+
+- **Genesis block** is created at deployment with a fixed hash, anchoring the chain.
+- `addBlock(flRound, blockType, data)` — hashes `data` with `keccak256`, chains to the previous block's hash, emits a `BlockAdded` event. The contract owner (the server wallet) can write any block type; authorized clients can only write `LOCAL` blocks.
+- `verifyChain()` — iterates all blocks and checks `blocks[i].previousHash == blocks[i-1].contentHash`. Returns `false` if any tampering is detected.
+- `pause()` / `unpause()` — emergency stop controlled by the owner.
+
+```
+Functions:
+  authorizeClient(address)   onlyOwner
+  revokeClient(address)      onlyOwner
+  addBlock(uint, string, bytes) → uint    whenNotPaused
+  getBlock(uint) → Block
+  getBlockCount() → uint
+  verifyChain() → bool
+  getLatestBlock() → Block
+  pause() / unpause()        onlyOwner
+```
+
+The Python wrapper (`blockchain.py`) serializes all metadata as JSON, encodes it to `bytes`, and calls `addBlock`. Only the `keccak256` hash of the payload is stored on-chain; the raw data is not.
+
+---
+
+## Limitations & Future Work
+
+- **No homomorphic encryption** — model updates are transmitted in plaintext between clients and server. Future work could add HE (e.g., TenSEAL) for gradient privacy as in SPBFL-IoV.
+- **Simple loss-threshold filter** — the current voting mechanism flags outliers by `mean + std` of training loss. A stronger defense (e.g., cosine similarity filtering, Krum, or Bulyan) would be more robust against model poisoning.
+- **All clients still contribute** — flagged clients are written as REJECTED on-chain for auditability, but their weights are still included in aggregation. A stricter setup would exclude rejected clients from `FedAvg`.
+- **Single-server bottleneck** — the server holds the global model and writes all VOTE/GLOBAL blocks. A fully decentralized setup (per the BFMIL paper) would distribute aggregation to the blockchain itself via smart contracts.
+- **Sepolia gas costs** — each round writes `2K + 1` transactions (K clients × LOCAL + VOTE, plus 1 GLOBAL). At default settings (10 clients, 5 rounds) this is 105 transactions. On mainnet this would be prohibitively expensive.
+- **Evaluation proxy** — global evaluation currently uses the test split of a single partition rather than the full held-out set. A proper setup would aggregate evaluation across all partitions.
