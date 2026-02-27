@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FL·CHAIN — Network Topology</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --white:#ffffff; --off:#f7f7f5; --rule:#e2e2de;
+  --light:#c8c8c4; --mid:#8a8a84; --dark:#3a3a36; --black:#111110;
+  --green:#1a7a3c; --green-bg:#edf7f1;
+  --red:#b91c1c;   --red-bg:#fef2f2;
+  --amber:#b45309; --amber-bg:#fffbeb;
+  --blue:#1d4ed8;  --blue-bg:#eff6ff;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--off);color:var(--black);font-family:var(--sans);min-height:100vh;}
+
+/* Header */
+header{background:var(--white);border-bottom:2px solid var(--black);padding:0 32px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.logo{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:16px;}
+.logo-div{width:1px;height:18px;background:var(--rule);}
+.logo-sub{font-family:var(--sans);font-weight:400;font-size:12px;color:var(--mid);}
+.hdr-right{display:flex;align-items:center;gap:24px;font-family:var(--mono);font-size:11px;color:var(--mid);}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid currentColor;border-radius:2px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;}
+.status-pill.idle{color:var(--light);}
+.status-pill.training{color:var(--amber);}
+.status-pill.complete{color:var(--green);}
+.sdot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.status-pill.training .sdot{animation:blink .9s step-end infinite;}
+@keyframes blink{50%{opacity:0;}}
+.cdot{width:6px;height:6px;border-radius:50%;background:var(--light);}
+.cdot.on{background:var(--green);}
+.cdot.off{background:var(--red);animation:blink .9s step-end infinite;}
+
+/* Topology panel */
+.topo-panel{background:var(--white);border-bottom:1px solid var(--rule);}
+.topo-header{padding:14px 32px 0;display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}
+.legend{display:flex;gap:20px;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--mid);}
+.leg-swatch{width:10px;height:10px;border-radius:2px;border:1.5px solid;}
+.leg-swatch.idle{background:#f7f7f5;border-color:#c8c8c4;}
+.leg-swatch.training{background:#fffbeb;border-color:#b45309;}
+.leg-swatch.accepted{background:#edf7f1;border-color:#1a7a3c;}
+.leg-swatch.rejected{background:#fef2f2;border-color:#b91c1c;}
+.leg-swatch.aggregating{background:#eff6ff;border-color:#1d4ed8;}
+
+.topo-wrap{position:relative;height:500px;}
+#topoCanvas{display:block;width:100%;height:100%;}
+
+/* Tooltip */
+#tip{position:absolute;background:var(--white);border:1px solid var(--black);box-shadow:3px 3px 0 var(--black);border-radius:2px;padding:10px 14px;font-family:var(--mono);font-size:10px;line-height:1.9;pointer-events:none;display:none;z-index:100;min-width:170px;}
+#tip b{display:block;font-size:11px;margin-bottom:2px;border-bottom:1px solid var(--rule);padding-bottom:4px;margin-bottom:6px;}
+
+/* Phase banner */
+#phaseBanner{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:var(--white);border:1px solid var(--black);padding:5px 18px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;opacity:0;transition:opacity .4s;}
+#phaseBanner.show{opacity:1;}
+
+/* Metrics */
+.metrics{max-width:1560px;margin:0 auto;padding:24px 32px 48px;}
+.mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--rule);}
+.card{background:var(--white);}
+.ch{padding:14px 20px 12px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;justify-content:space-between;}
+.ct{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}
+.cm{font-family:var(--mono);font-size:9px;color:var(--light);}
+.cb{padding:18px 20px;}
+
+.sstrip{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:var(--rule);}
+.sstrip .card{border-right:1px solid var(--rule);}
+.sstrip .card:last-child{border-right:none;}
+.stat{padding:20px 20px 18px;}
+.slbl{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;}
+.sval{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--black);line-height:1;letter-spacing:-.02em;}
+.sval.g{color:var(--green);}
+.sval.a{color:var(--amber);}
+.ssub{font-size:10px;color:var(--light);margin-top:5px;}
+
+.rcard{grid-column:1/-1;}
+.rdots{display:flex;gap:4px;flex-wrap:wrap;padding:2px 0;}
+.rdot{width:32px;height:32px;border:1px solid var(--rule);background:var(--off);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--light);border-radius:3px;transition:all .2s;}
+.rdot.done{background:var(--black);border-color:var(--black);color:var(--white);}
+.rdot.active{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);animation:blink .9s step-end infinite;}
+
+.clcard{grid-column:1/3;}
+table{width:100%;border-collapse:collapse;}
+thead tr{border-bottom:1px solid var(--black);}
+th{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);padding:8px 12px;text-align:left;font-weight:500;white-space:nowrap;}
+td{padding:9px 12px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:11px;color:var(--dark);}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--off);}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;border:1px solid transparent;}
+.badge.accepted{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
+.badge.rejected{background:var(--red-bg);color:var(--red);border-color:#fecaca;}
+
+.vcard{grid-column:3;}
+.vrow{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--rule);}
+.vrow:last-child{border-bottom:none;}
+.vid{font-family:var(--mono);font-size:10px;color:var(--dark);min-width:50px;}
+.ltrack{flex:1;height:3px;background:var(--rule);border-radius:2px;overflow:hidden;}
+.lfill{height:100%;border-radius:2px;transition:width .5s;}
+.lfill.ok{background:var(--green);}
+.lfill.bad{background:var(--red);}
+
+.chcard{grid-column:1/3;}
+.cwrap{height:160px;}
+canvas#mchart{display:block;width:100%;height:100%;}
+
+.pccard{grid-column:3;}
+.pcrow{display:grid;grid-template-columns:38px 1fr 40px;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--rule);}
+.pcrow:last-child{border-bottom:none;}
+.pcname{font-family:var(--mono);font-size:9px;color:var(--mid);}
+.pctrack{height:4px;background:var(--rule);border-radius:2px;overflow:hidden;}
+.pcfill{height:100%;background:var(--black);border-radius:2px;transition:width .6s;}
+.pcval{font-family:var(--mono);font-size:10px;color:var(--dark);text-align:right;}
+
+.cmcard{grid-column:1/3;}
+.cmover{overflow-x:auto;}
+.cmtbl{border-collapse:collapse;margin:0 auto;}
+.cmtbl th,.cmtbl td{width:56px;height:42px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:11px;border:1px solid var(--rule);}
+.cmtbl thead th,.cmtbl .cmlbl{background:var(--off);color:var(--mid);font-size:9px;font-weight:500;letter-spacing:.06em;}
+
+.bccard{grid-column:3;}
+.bcvalid{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
+.bcvalid.valid{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
+.bcvalid.invalid{background:var(--red-bg);color:var(--red);border-color:#fecaca;}
+.bcvalid.unknown{background:var(--off);color:var(--light);border-color:var(--rule);}
+.blist{display:flex;flex-direction:column;}
+.bitem{display:grid;grid-template-columns:26px 58px 1fr auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule);}
+.bitem:last-child{border-bottom:none;}
+.bitem:hover{background:var(--off);margin:0 -20px;padding:10px 20px;}
+.bnum{font-family:var(--mono);font-size:10px;color:var(--light);text-align:right;}
+.btag{display:inline-flex;padding:2px 6px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;}
+.btag.LOCAL{background:var(--blue-bg);color:var(--blue);border-color:#bfdbfe;}
+.btag.VOTE{background:var(--amber-bg);color:var(--amber);border-color:#fde68a;}
+.btag.GLOBAL{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
+.btag.GENESIS{background:var(--off);color:var(--mid);border-color:var(--rule);}
+.binfo{font-family:var(--mono);font-size:9px;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btime{font-family:var(--mono);font-size:9px;color:var(--light);white-space:nowrap;}
+
+.empty{padding:36px 20px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--light);letter-spacing:.06em;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--rule);}
+
+@media(max-width:960px){
+  .mgrid{grid-template-columns:1fr 1fr;}
+  .sstrip{grid-template-columns:repeat(3,1fr);}
+  .clcard,.chcard,.cmcard{grid-column:1/-1;}
+  .vcard,.pccard,.bccard{grid-column:1/-1;}
+}
+@media(max-width:600px){
+  .mgrid{grid-template-columns:1fr;}
+  .topo-wrap{height:360px;}
+  header,.topo-header,.metrics{padding-left:16px;padding-right:16px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">FL·CHAIN <div class="logo-div"></div><span class="logo-sub">Federated ECG — Network Topology</span></div>
+  <div class="hdr-right">
+    <div style="display:flex;align-items:center;gap:5px;"><div class="cdot" id="cdot"></div><span id="clbl">Connecting</span></div>
+    <span id="lupd" style="color:var(--light)">—</span>
+    <div class="status-pill idle" id="spill"><div class="sdot"></div><span id="stxt">Idle</span></div>
+  </div>
+</header>
+
+<div class="topo-panel">
+  <div class="topo-header">
+    <span class="panel-title">Network Topology</span>
+    <div class="legend">
+      <div class="leg"><div class="leg-swatch idle"></div>Idle</div>
+      <div class="leg"><div class="leg-swatch training"></div>Training</div>
+      <div class="leg"><div class="leg-swatch accepted"></div>Accepted</div>
+      <div class="leg"><div class="leg-swatch rejected"></div>Rejected</div>
+      <div class="leg"><div class="leg-swatch aggregating"></div>Aggregating</div>
+    </div>
+  </div>
+  <div class="topo-wrap">
+    <canvas id="topoCanvas"></canvas>
+    <div id="tip"><b id="tipTitle"></b><div id="tipBody"></div></div>
+    <div id="phaseBanner"></div>
+  </div>
+</div>
+
+<div class="metrics">
+  <div class="mgrid">
+    <div class="sstrip">
+      <div class="card stat"><div class="slbl">Round</div><div class="sval" id="sRound">—</div><div class="ssub" id="sRoundSub">of — rounds</div></div>
+      <div class="card stat"><div class="slbl">Accuracy</div><div class="sval g" id="sAcc">—</div><div class="ssub">global model</div></div>
+      <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">5-superclass</div></div>
+      <div class="card stat"><div class="slbl">AUC Macro</div><div class="sval" id="sAUC">—</div><div class="ssub">ROC area</div></div>
+      <div class="card stat"><div class="slbl">Chain Blocks</div><div class="sval a" id="sBlocks">—</div><div class="ssub">Polygon Amoy</div></div>
+      <div class="card stat"><div class="slbl">Active Clients</div><div class="sval" id="sClients">—</div><div class="ssub">devices</div></div>
+    </div>
+    <div class="card rcard">
+      <div class="ch"><span class="ct">Round Progress</span><span class="cm" id="rplbl">—</span></div>
+      <div class="cb"><div class="rdots" id="rdots"></div></div>
+    </div>
+    <div class="card clcard">
+      <div class="ch"><span class="ct">Client Training</span><span class="cm" id="crlbl">—</span></div>
+      <div class="cb" style="padding:0" id="ctable"><div class="empty">Waiting for training data</div></div>
+    </div>
+    <div class="card vcard">
+      <div class="ch"><span class="ct">Loss Threshold Votes</span><span class="cm" id="vrlbl">—</span></div>
+      <div class="cb" id="vrows"><div class="empty">Awaiting votes</div></div>
+    </div>
+    <div class="card chcard">
+      <div class="ch">
+        <span class="ct">Global Metrics History</span>
+        <span class="cm" style="display:flex;gap:14px;">
+          <span style="color:var(--black)">— Accuracy</span>
+          <span style="color:var(--mid)">- - F1</span>
+          <span style="color:var(--light)">··· AUC</span>
+        </span>
+      </div>
+      <div class="cb"><div class="cwrap"><canvas id="mchart"></canvas></div></div>
+    </div>
+    <div class="card pccard">
+      <div class="ch"><span class="ct">Per-Superclass F1</span><span class="cm" id="pclbl">—</span></div>
+      <div class="cb" id="pcrows"><div class="empty">No data yet</div></div>
+    </div>
+    <div class="card cmcard">
+      <div class="ch"><span class="ct">Confusion Matrix</span><span class="cm" id="cmlbl">—</span></div>
+      <div class="cb cmover" id="cmwrap"><div class="empty">Waiting for global evaluation</div></div>
+    </div>
+    <div class="card bccard">
+      <div class="ch"><span class="ct">Blockchain Ledger — Polygon Amoy</span><span class="bcvalid unknown" id="bcvalid">Checking</span></div>
+      <div class="cb" id="bcblocks"><div class="empty">Connecting to Polygon Amoy</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────
+const API = 'http://localhost:8000';
+const SC  = ['NORM','MI','STTC','CD','HYP'];
+const N   = 10; // devices
+
+// ─────────────────────────────────────────────────────────────
+// TOPOLOGY ENGINE
+// ─────────────────────────────────────────────────────────────
+const cv  = document.getElementById('topoCanvas');
+const ctx = cv.getContext('2d');
+const tip = document.getElementById('tip');
+const banner = document.getElementById('phaseBanner');
+
+// Runtime state
+let devState  = Array(N).fill('idle');   // per-device state string
+let devData   = Array(N).fill(null);     // per-device metrics object
+let srvState  = 'idle';
+let bcState   = 'idle';
+let bcCount   = 0;
+let curRound  = 0;
+let globalM   = null;
+let packets   = [];                      // moving data packets
+let nodes     = {};                      // computed node positions
+let prevKey   = '';                      // phase change detector
+
+// State → visual config
+const STATES = {
+  idle:         { fill:'#f7f7f5', stroke:'#c8c8c4', glow:null,        label:'Idle'         },
+  training:     { fill:'#fffbeb', stroke:'#b45309', glow:'#b45309',   label:'Training'     },
+  accepted:     { fill:'#edf7f1', stroke:'#1a7a3c', glow:'#1a7a3c',   label:'Accepted'     },
+  rejected:     { fill:'#fef2f2', stroke:'#b91c1c', glow:'#b91c1c',   label:'Rejected'     },
+  aggregating:  { fill:'#eff6ff', stroke:'#1d4ed8', glow:'#1d4ed8',   label:'Aggregating'  },
+  broadcasting: { fill:'#eff6ff', stroke:'#1d4ed8', glow:'#1d4ed8',   label:'Broadcasting' },
+  writing:      { fill:'#fffbeb', stroke:'#b45309', glow:'#b45309',   label:'Writing'      },
+  confirmed:    { fill:'#edf7f1', stroke:'#1a7a3c', glow:'#1a7a3c',   label:'Confirmed'    },
+};
+const sc = s => STATES[s] || STATES.idle;
+
+// ── Layout ──
+function layout() {
+  const W = cv.offsetWidth, H = cv.offsetHeight;
+  const cx = W * 0.42, cy = H * 0.5;
+  const ring = Math.min(W * 0.34, H * 0.40);
+
+  nodes.server     = { x: cx,          y: cy,           r: 30, kind:'server',     label:'FL Server',    sub:'MedicalFedAvg' };
+  nodes.blockchain = { x: cx + W*0.30, y: cy,           r: 24, kind:'blockchain', label:'Blockchain',   sub:'Polygon Amoy'  };
+
+  for (let i = 0; i < N; i++) {
+    const a = (2 * Math.PI * i / N) - Math.PI / 2;
+    nodes[`d${i}`] = {
+      x: cx + Math.cos(a) * ring,
+      y: cy + Math.sin(a) * ring,
+      r: 20, kind:'device', idx:i,
+      label:`Device ${i}`, sub:'Raspberry Pi'
+    };
+  }
+}
+
+// ── Draw a single node ──
+function drawNode(key) {
+  const n   = nodes[key];
+  if (!n) return;
+  let state = 'idle';
+  if      (n.kind === 'device')     state = devState[n.idx];
+  else if (n.kind === 'server')     state = srvState;
+  else if (n.kind === 'blockchain') state = bcState;
+  const col = sc(state);
+
+  // Glow
+  if (col.glow) {
+    ctx.shadowColor = col.glow;
+    ctx.shadowBlur  = 18;
+  }
+
+  // Main circle
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+  ctx.fillStyle = col.fill;
+  ctx.fill();
+  ctx.strokeStyle = col.stroke;
+  ctx.lineWidth   = state === 'idle' ? 1.5 : 2.5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // ── Icons (canvas-drawn, no images needed) ──
+  ctx.save();
+  ctx.translate(n.x, n.y);
+  ctx.fillStyle   = col.stroke;
+  ctx.strokeStyle = col.stroke;
+  ctx.lineWidth   = 1.5;
+  ctx.lineCap     = 'round';
+
+  if (n.kind === 'device') {
+    // Raspberry Pi icon: small board outline + GPIO pins
+    const s = n.r * 0.52;
+    ctx.beginPath();
+    roundRect(ctx, -s, -s * 0.7, s * 2, s * 1.4, 2);
+    ctx.stroke();
+    // GPIO pin row
+    for (let p = 0; p < 4; p++) {
+      ctx.beginPath();
+      ctx.arc(-s * 0.5 + p * (s * 0.33), -s * 0.7 - 3, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // CPU square
+    ctx.beginPath();
+    roundRect(ctx, -s * 0.28, -s * 0.28, s * 0.56, s * 0.56, 1);
+    ctx.stroke();
+
+  } else if (n.kind === 'server') {
+    // Server rack icon: 3 stacked rectangles
+    const s = n.r * 0.52;
+    for (let row = 0; row < 3; row++) {
+      const ry = -s + row * (s * 0.72);
+      ctx.beginPath();
+      roundRect(ctx, -s, ry, s * 2, s * 0.55, 2);
+      ctx.stroke();
+      // LED dot
+      ctx.beginPath();
+      ctx.arc(s * 0.7, ry + s * 0.27, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = state === 'aggregating' ? '#1d4ed8'
+                    : state === 'idle'        ? '#c8c8c4'
+                    : col.stroke;
+      ctx.fill();
+      ctx.fillStyle = col.stroke;
+    }
+
+  } else if (n.kind === 'blockchain') {
+    // Chain-link icon: two linked hexagons
+    const s = n.r * 0.44;
+    drawHex(ctx, -s * 0.55, 0, s);
+    ctx.stroke();
+    drawHex(ctx,  s * 0.55, 0, s);
+    ctx.stroke();
+    // linking bar
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.05, 0);
+    ctx.lineTo( s * 0.05, 0);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  // Label below node
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font         = '500 11px DM Sans';
+  ctx.fillStyle    = '#111110';
+  ctx.fillText(n.label, n.x, n.y + n.r + 6);
+
+  // Sub-label (state or metric)
+  let sub = null;
+  if (n.kind === 'device') {
+    const d = devData[n.idx];
+    if (state === 'training')        sub = 'training…';
+    else if (state === 'accepted')   sub = d ? `loss ${d.train_loss.toFixed(3)}` : 'accepted';
+    else if (state === 'rejected')   sub = d ? `loss ${d.train_loss.toFixed(3)}` : 'rejected';
+    else                             sub = n.sub;
+  } else if (n.kind === 'server') {
+    if      (state === 'aggregating')   sub = 'aggregating…';
+    else if (state === 'broadcasting')  sub = 'broadcasting…';
+    else if (globalM)                   sub = `acc ${(globalM.accuracy*100).toFixed(1)}%`;
+    else                                sub = n.sub;
+  } else {
+    sub = bcCount > 0 ? `${bcCount} blocks` : n.sub;
+  }
+
+  ctx.font      = '10px IBM Plex Mono';
+  ctx.fillStyle = state === 'idle' ? '#8a8a84' : col.stroke;
+  ctx.fillText(sub, n.x, n.y + n.r + 20);
+}
+
+// ── Helper: rounded rect ──
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── Helper: hexagon ──
+function drawHex(ctx, cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+// ── Draw edge lines ──
+function drawEdges() {
+  const sv = nodes.server, bc = nodes.blockchain;
+
+  // Device → server edges
+  for (let i = 0; i < N; i++) {
+    const d   = nodes[`d${i}`];
+    const st  = devState[i];
+    const col = sc(st);
+    const active = st !== 'idle';
+
+    ctx.beginPath();
+    ctx.strokeStyle = active ? col.stroke : '#e2e2de';
+    ctx.lineWidth   = active ? 1.5 : 1;
+    ctx.globalAlpha = active ? 0.45 : 1;
+    ctx.setLineDash(active ? [] : [5, 5]);
+    ctx.moveTo(d.x, d.y);
+    ctx.lineTo(sv.x, sv.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  // Server → blockchain edge
+  const bcActive = bcState !== 'idle';
+  ctx.beginPath();
+  ctx.strokeStyle = bcActive ? '#b45309' : '#e2e2de';
+  ctx.lineWidth   = bcActive ? 2 : 1;
+  ctx.setLineDash(bcActive ? [] : [5, 5]);
+  ctx.moveTo(sv.x, sv.y);
+  ctx.lineTo(bc.x, bc.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Edge label between server and blockchain
+  const mx = (sv.x + bc.x) / 2, my = (sv.y + bc.y) / 2 - 10;
+  if (bcActive) {
+    ctx.font      = '9px IBM Plex Mono';
+    ctx.fillStyle = '#b45309';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('audit trail', mx, my);
+  }
+}
+
+// ── Draw round badge above server ──
+function drawRoundBadge() {
+  if (!curRound) return;
+  const sv = nodes.server;
+  if (!sv) return;
+  ctx.font         = '700 12px IBM Plex Mono';
+  ctx.fillStyle    = '#111110';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`Round ${curRound}`, sv.x, sv.y - sv.r - 8);
+}
+
+// ── Moving data packets ──
+function stepPackets() {
+  packets = packets.filter(p => p.t < 1);
+  for (const p of packets) {
+    const fn = nodes[p.from], tn = nodes[p.to];
+    if (!fn || !tn) { p.t = 1; continue; }
+
+    const x = fn.x + (tn.x - fn.x) * p.t;
+    const y = fn.y + (tn.y - fn.y) * p.t;
+
+    // Packet dot
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle   = p.color;
+    ctx.globalAlpha = 0.92;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Small trailing fade
+    const px = fn.x + (tn.x - fn.x) * Math.max(0, p.t - 0.06);
+    const py = fn.y + (tn.y - fn.y) * Math.max(0, p.t - 0.06);
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, Math.PI * 2);
+    ctx.fillStyle   = p.color;
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Label above packet
+    ctx.font         = '8px IBM Plex Mono';
+    ctx.fillStyle    = p.color;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(p.label, x, y - 8);
+
+    p.t += p.speed;
+  }
+}
+
+function spawn(from, to, color, label, speed = 0.02) {
+  packets.push({ from, to, color, label, speed, t: 0 });
+}
+
+// ── Main draw loop ──
+function drawFrame() {
+  ctx.clearRect(0, 0, cv.offsetWidth, cv.offsetHeight);
+  drawEdges();
+  // Draw all nodes
+  for (let i = 0; i < N; i++) drawNode(`d${i}`);
+  drawNode('server');
+  drawNode('blockchain');
+  drawRoundBadge();
+  stepPackets();
+  requestAnimationFrame(drawFrame);
+}
+
+// ── Canvas resize ──
+function resizeTopo() {
+  const dpr = devicePixelRatio || 1;
+  cv.width  = cv.offsetWidth  * dpr;
+  cv.height = cv.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  layout();
+}
+
+// ── Phase banner helper ──
+let bannerTimer;
+function showBanner(text) {
+  banner.textContent = text;
+  banner.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => banner.classList.remove('show'), 2800);
+}
+
+// ── Update topology from API state ──
+function updateTopo(state) {
+  curRound = state.latest_round || 0;
+  bcCount  = state.blockchain?.chain_length || 0;
+  const rnd = state.rounds?.[String(curRound)] || {};
+  const tr  = rnd.training;
+  const gl  = rnd.global;
+  globalM   = gl || null;
+
+  if (state.status === 'idle' || !curRound) {
+    devState = Array(N).fill('idle');
+    srvState = 'idle'; bcState = 'idle'; return;
+  }
+
+  const devices = tr?.devices || [];
+  const thr     = tr?.threshold || 0;
+  const reported = new Set();
+
+  devices.forEach(d => {
+    const id = d.client_id;
+    if (id < 0 || id >= N) return;
+    reported.add(id);
+    devData[id] = d;
+    devState[id] = gl ? (d.train_loss <= thr ? 'accepted' : 'rejected')
+                      : 'training';
+  });
+  for (let i = 0; i < N; i++) if (!reported.has(i)) devState[i] = 'idle';
+
+  srvState = gl         ? 'idle'
+           : devices.length ? 'aggregating'
+           : 'idle';
+
+  bcState = state.blockchain?.chain_valid === true && bcCount > 1 ? 'confirmed'
+          : bcCount > 0 ? 'writing'
+          : 'idle';
+}
+
+// ── Trigger packets on phase changes ──
+function triggerPackets(state) {
+  const rnd  = state.latest_round || 0;
+  const rndD = state.rounds?.[String(rnd)] || {};
+  const tr   = rndD.training;
+  const gl   = rndD.global;
+  const phase = gl ? 'done' : tr ? 'voted' : 'wait';
+  const key   = `${rnd}:${phase}`;
+  if (key === prevKey) return;
+  prevKey = key;
+
+  // New round — server broadcasts global weights to all devices
+  if (rnd > 0 && phase === 'voted') {
+    showBanner(`Round ${rnd} — Devices receiving global model`);
+    for (let i = 0; i < N; i++) {
+      const delay = i * 70;
+      setTimeout(() => spawn('server', `d${i}`, '#1d4ed8', 'weights↓', 0.022 + Math.random()*0.008), delay);
+    }
+  }
+
+  // Devices uploading local updates to server
+  if (phase === 'voted' && tr?.devices?.length) {
+    setTimeout(() => {
+      showBanner(`Round ${rnd} — Uploading local updates`);
+      tr.devices.forEach((d, i) => {
+        if (d.client_id >= 0 && d.client_id < N) {
+          setTimeout(() => spawn(`d${d.client_id}`, 'server', '#b45309', 'update↑', 0.017 + Math.random()*0.007), i * 80);
+        }
+      });
+    }, 1600);
+  }
+
+  // Round done — server writes to blockchain, broadcasts new model
+  if (phase === 'done') {
+    showBanner(`Round ${rnd} — Writing to blockchain`);
+    setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'LOCAL', 0.014), 200);
+    setTimeout(() => spawn('server', 'blockchain', '#b45309', 'VOTE',  0.013), 900);
+    setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'GLOBAL',0.012), 1600);
+    setTimeout(() => {
+      showBanner(`Round ${rnd} complete — Broadcasting new model`);
+      for (let i = 0; i < N; i++) {
+        setTimeout(() => spawn('server', `d${i}`, '#1d4ed8', 'model↓', 0.02 + Math.random()*0.008), i * 65);
+      }
+    }, 2400);
+  }
+}
+
+// ── Tooltip ──
+function nodeAt(mx, my) {
+  for (const [k, n] of Object.entries(nodes)) {
+    const dx = mx - n.x, dy = my - n.y;
+    if (Math.sqrt(dx*dx + dy*dy) <= n.r + 8) return { key: k, node: n };
+  }
+  return null;
+}
+
+cv.addEventListener('mousemove', e => {
+  const rect = cv.getBoundingClientRect();
+  const hit  = nodeAt(e.clientX - rect.left, e.clientY - rect.top);
+  if (!hit) { tip.style.display = 'none'; return; }
+  const { key, node: n } = hit;
+
+  tip.style.display = 'block';
+  tip.style.left    = (e.clientX - rect.left + 14) + 'px';
+  tip.style.top     = (e.clientY - rect.top  - 10) + 'px';
+  document.getElementById('tipTitle').textContent = n.label;
+
+  let rows = [];
+  if (n.kind === 'server') {
+    rows = [`Status: ${srvState}`, `Round: ${curRound || '—'}`];
+    if (globalM) rows.push(`Accuracy: ${(globalM.accuracy*100).toFixed(1)}%`, `F1 Macro: ${globalM.f1_macro?.toFixed(4)}`);
+  } else if (n.kind === 'blockchain') {
+    rows = [`Network: Polygon Amoy`, `State: ${bcState}`, `Blocks: ${bcCount}`];
+    if (state_cache?.blockchain?.chain_valid != null)
+      rows.push(`Chain valid: ${state_cache.blockchain.chain_valid ? 'Yes' : 'No'}`);
+  } else {
+    const id = n.idx, d = devData[id];
+    rows = [`State: ${devState[id]}`, `Hardware: Raspberry Pi`];
+    if (d) rows.push(`Train loss: ${d.train_loss?.toFixed(4)}`, `Samples: ${d.num_examples?.toLocaleString()}`, `Duration: ${(d.training_time||d.training_time_seconds||0).toFixed(1)}s`);
+    else rows.push('No data yet');
+  }
+  document.getElementById('tipBody').innerHTML = rows.join('<br>');
+});
+cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+
+// ─────────────────────────────────────────────────────────────
+// METRICS CHART
+// ─────────────────────────────────────────────────────────────
+const mc   = document.getElementById('mchart');
+const mctx = mc.getContext('2d');
+let hist   = [];
+
+function resizeMChart() {
+  const r = devicePixelRatio || 1;
+  mc.width = mc.offsetWidth * r; mc.height = mc.offsetHeight * r;
+  mctx.scale(r, r); drawMChart();
+}
+function drawMChart() {
+  const W = mc.offsetWidth, H = mc.offsetHeight;
+  mctx.clearRect(0,0,W,H);
+  const p={t:8,r:16,b:28,l:32}, iW=W-p.l-p.r, iH=H-p.t-p.b;
+  mctx.strokeStyle='#e2e2de'; mctx.lineWidth=1;
+  mctx.beginPath(); mctx.moveTo(p.l,p.t); mctx.lineTo(p.l,p.t+iH); mctx.lineTo(p.l+iW,p.t+iH); mctx.stroke();
+  if (!hist.length) {
+    mctx.fillStyle='#c8c8c4'; mctx.font='10px IBM Plex Mono';
+    mctx.textAlign='center'; mctx.fillText('No data yet', W/2, H/2+4); return;
+  }
+  for (let i=0;i<=4;i++) {
+    const y=p.t+iH*(i/4);
+    mctx.strokeStyle='#e2e2de'; mctx.lineWidth=1;
+    mctx.beginPath(); mctx.moveTo(p.l,y); mctx.lineTo(p.l+iW,y); mctx.stroke();
+    mctx.fillStyle='#8a8a84'; mctx.font='9px IBM Plex Mono';
+    mctx.textAlign='right'; mctx.textBaseline='middle';
+    mctx.fillText((1-i/4).toFixed(1), p.l-5, y);
+  }
+  const n=hist.length, xOf=i=>p.l+(n===1?iW/2:(i*iW)/(n-1)), yOf=v=>p.t+iH*(1-Math.max(0,Math.min(1,v)));
+  mctx.textAlign='center'; mctx.fillStyle='#8a8a84'; mctx.textBaseline='top';
+  hist.forEach((d,i)=>mctx.fillText('R'+d.round, xOf(i), H-14));
+  function line(key,color,dash=[]) {
+    mctx.beginPath(); mctx.strokeStyle=color; mctx.lineWidth=1.5; mctx.setLineDash(dash);
+    hist.forEach((d,i)=>{ const x=xOf(i),y=yOf(d[key]); i===0?mctx.moveTo(x,y):mctx.lineTo(x,y); });
+    mctx.stroke(); mctx.setLineDash([]);
+    hist.forEach((d,i)=>{ mctx.beginPath(); mctx.arc(xOf(i),yOf(d[key]),2.5,0,Math.PI*2); mctx.fillStyle=color; mctx.fill(); });
+  }
+  line('accuracy','#111110'); line('f1_macro','#8a8a84',[4,3]); line('auc_macro','#c8c8c4',[2,3]);
+}
+
+// ─────────────────────────────────────────────────────────────
+// METRICS RENDER
+// ─────────────────────────────────────────────────────────────
+const pct  = v => (v*100).toFixed(1)+'%';
+const fmt4 = v => typeof v==='number' ? v.toFixed(4) : '—';
+let state_cache = null;
+
+function renderAll(state) {
+  state_cache = state;
+  const r = state.latest_round, rnd = state.rounds?.[String(r)]||{}, g = rnd.global;
+
+  // Status pill
+  const pill = document.getElementById('spill'), stxt = document.getElementById('stxt');
+  pill.className = 'status-pill '+(state.status||'idle');
+  stxt.textContent = (state.status||'idle').charAt(0).toUpperCase()+(state.status||'idle').slice(1);
+
+  // Stats
+  document.getElementById('sRound').textContent   = r||'—';
+  document.getElementById('sRoundSub').textContent= `of ${Object.keys(state.rounds||{}).length} rounds`;
+  document.getElementById('sAcc').textContent     = g?pct(g.accuracy):'—';
+  document.getElementById('sF1').textContent      = g?fmt4(g.f1_macro):'—';
+  document.getElementById('sAUC').textContent     = g?fmt4(g.auc_macro):'—';
+  document.getElementById('sBlocks').textContent  = state.blockchain?.chain_length??'—';
+  document.getElementById('sClients').textContent = rnd.training?.devices?.length??'—';
+
+  // Round dots
+  const rdotsEl = document.getElementById('rdots');
+  const rounds = Object.keys(state.rounds||{}).map(Number).sort((a,b)=>a-b);
+  const done   = rounds.filter(rr=>state.rounds[rr]?.global).length;
+  rdotsEl.innerHTML = '';
+  rounds.forEach(rr => {
+    const el = document.createElement('div');
+    const isDone = !!state.rounds[rr]?.global, isActive = rr===r&&state.status==='training';
+    el.className = 'rdot '+(isDone?'done':isActive?'active':'');
+    el.textContent = rr; el.title = isDone?`Round ${rr} — Acc ${pct(state.rounds[rr].global.accuracy)}`:`Round ${rr}`;
+    rdotsEl.appendChild(el);
+  });
+  document.getElementById('rplbl').textContent = `${done} / ${rounds.length} complete`;
+
+  // Client table
+  const ctel = document.getElementById('ctable'); document.getElementById('crlbl').textContent = r?`Round ${r}`:'—';
+  if (!rnd.training?.devices?.length) { ctel.innerHTML='<div class="empty">Waiting for training data</div>'; }
+  else {
+    const tr2 = rnd.training, thr = tr2.threshold||0;
+    ctel.innerHTML = `<table><thead><tr><th>Device</th><th>Train Loss</th><th>Samples</th><th>Duration</th><th>Classes</th><th>Vote</th></tr></thead><tbody>${
+      tr2.devices.map(d=>{
+        const v=d.train_loss<=thr?'accepted':'rejected';
+        return `<tr><td>${d.client_id}</td><td>${fmt4(d.train_loss)}</td><td>${(d.num_examples||0).toLocaleString()}</td><td>${(d.training_time||d.training_time_seconds||0).toFixed(1)}s</td><td>${d.active_classes??'—'}</td><td><span class="badge ${v}">${v}</span></td></tr>`;
+      }).join('')
+    }</tbody></table>`;
+  }
+
+  // Votes
+  const vEl = document.getElementById('vrows'); document.getElementById('vrlbl').textContent = r?`Round ${r}`:'—';
+  if (!rnd.training?.devices?.length) { vEl.innerHTML='<div class="empty">Awaiting votes</div>'; }
+  else {
+    const devs=rnd.training.devices, thr=rnd.training.threshold||0, maxL=Math.max(...devs.map(d=>d.train_loss),thr*1.2,0.01);
+    vEl.innerHTML = devs.map(d=>{
+      const ok=d.train_loss<=thr, w=Math.min(100,(d.train_loss/maxL)*100).toFixed(1);
+      return `<div class="vrow"><span class="vid">Dev ${d.client_id}</span><div class="ltrack"><div class="lfill ${ok?'ok':'bad'}" style="width:${w}%"></div></div><span class="badge ${ok?'accepted':'rejected'}" style="flex-shrink:0">${ok?'acc':'rej'}</span></div>`;
+    }).join('');
+  }
+
+  // Per-class F1
+  const pcEl = document.getElementById('pcrows'); document.getElementById('pclbl').textContent = r?`Round ${r}`:'—';
+  if (!g?.per_class_f1) { pcEl.innerHTML='<div class="empty">No data yet</div>'; }
+  else pcEl.innerHTML = SC.map((nm,i)=>{const f1=g.per_class_f1[i]||0; return `<div class="pcrow"><div class="pcname">${nm}</div><div class="pctrack"><div class="pcfill" style="width:${(f1*100).toFixed(1)}%"></div></div><div class="pcval">${f1.toFixed(3)}</div></div>`;}).join('');
+
+  // Chart
+  hist = state.history||[]; drawMChart();
+
+  // Confusion matrix
+  const cmEl = document.getElementById('cmwrap'); document.getElementById('cmlbl').textContent = r?`Round ${r}`:'—';
+  if (!g?.confusion_matrix) { cmEl.innerHTML='<div class="empty">Waiting for global evaluation</div>'; }
+  else {
+    const cm=g.confusion_matrix, max=Math.max(...cm.flat(),1);
+    let html='<table class="cmtbl"><thead><tr><th></th>';
+    SC.forEach(n=>html+=`<th>${n}</th>`);
+    html+='</tr></thead><tbody>';
+    cm.forEach((row,i)=>{
+      html+=`<tr><th class="cmlbl">${SC[i]}</th>`;
+      row.forEach((v,j)=>{
+        const ii=v/max;
+        const bg=i===j?`rgba(17,17,16,${(ii*.75).toFixed(2)})`:`rgba(17,17,16,${(ii*.12).toFixed(2)})`;
+        html+=`<td style="background:${bg};color:${i===j&&ii>.4?'#fff':'#111'}">${v||''}</td>`;
+      });
+      html+='</tr>';
+    });
+    cmEl.innerHTML = html+'</tbody></table>';
+  }
+
+  // Blockchain
+  const bc=state.blockchain||{}, valEl=document.getElementById('bcvalid'), bEl=document.getElementById('bcblocks');
+  if (!bc.connected) { valEl.className='bcvalid unknown'; valEl.textContent='Disconnected'; bEl.innerHTML='<div class="empty">Cannot connect — check .env</div>'; }
+  else {
+    valEl.className = bc.chain_valid===true?'bcvalid valid':bc.chain_valid===false?'bcvalid invalid':'bcvalid unknown';
+    valEl.textContent = bc.chain_valid===true?'✓ Valid':bc.chain_valid===false?'✗ Broken':'Checking';
+    if (!bc.recent_blocks?.length) { bEl.innerHTML='<div class="empty">No blocks yet</div>'; }
+    else bEl.innerHTML = '<div class="blist">'+bc.recent_blocks.map(b=>{
+      const t=b.block_type||'?', ts=b.timestamp?new Date(b.timestamp*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—';
+      return `<div class="bitem"><span class="bnum">#${b.index}</span><span class="btag ${t}">${t}</span><span class="binfo">R${b.fl_round} · ${(b.content_hash||'').slice(0,14)}…</span><span class="btime">${ts}</span></div>`;
+    }).join('')+'</div>';
+  }
+
+  document.getElementById('lupd').textContent =
+    new Date(state.last_updated||Date.now()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  // Update topology
+  updateTopo(state);
+  triggerPackets(state);
+}
+
+// ─────────────────────────────────────────────────────────────
+// SSE + INIT
+// ─────────────────────────────────────────────────────────────
+function connect() {
+  const dot=document.getElementById('cdot'), lbl=document.getElementById('clbl');
+  dot.className='cdot'; lbl.textContent='Connecting';
+  const es = new EventSource(`${API}/api/stream`);
+  es.onopen    = () => { dot.className='cdot on'; lbl.textContent='Live'; };
+  es.onmessage = e => { try { const s=JSON.parse(e.data); if(!s.error) renderAll(s); } catch(_){} };
+  es.onerror   = () => { dot.className='cdot off'; lbl.textContent='Reconnecting'; es.close(); setTimeout(connect,4000); };
+}
+
+window.addEventListener('resize', () => { resizeTopo(); resizeMChart(); });
+
+resizeTopo();
+layout();
+drawFrame();            // start rAF loop
+
+setTimeout(resizeMChart, 80);
+
+fetch(`${API}/api/state`).then(r=>r.json()).then(renderAll).catch(()=>{}).finally(connect);
+</script>
+</body>
+</html>
