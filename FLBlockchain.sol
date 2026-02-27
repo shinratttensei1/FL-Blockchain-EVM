@@ -1,118 +1,95 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+// OpenZeppelin Contracts v5.0.2
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.2/contracts/access/Ownable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.2/contracts/utils/Pausable.sol";
 
-
+/**
+ * @title   FLBlockchain
+ * @notice  Immutable audit ledger for federated learning rounds on Polygon Amoy.
+ */
 contract FLBlockchain is Ownable, Pausable {
-    
-    // ══════════════════════════════════════════════════════════════════════
-    // Simple block structure
-    // ══════════════════════════════════════════════════════════════════════
-    
+
+    error NotAuthorized(address caller);
+    error ClientsCanOnlyAddLocalBlocks(string attempted);
+    error BlockDoesNotExist(uint256 index, uint256 chainLength);
+
     struct Block {
         uint256 blockNumber;
         uint256 flRound;
-        string blockType;        // "LOCAL", "VOTE", "GLOBAL"
-        bytes32 contentHash;     // Hash of data
+        string  blockType;
+        bytes32 contentHash;
         bytes32 previousHash;
         uint256 timestamp;
         address submitter;
     }
-    
+
     Block[] public blocks;
     mapping(address => bool) public authorizedClients;
-    
-    event BlockAdded(
-        uint256 indexed blockNumber,
-        uint256 indexed flRound,
-        string blockType,
-        bytes32 contentHash
-    );
-    
+
+    event BlockAdded(uint256 indexed blockNumber, uint256 indexed flRound, string blockType, bytes32 contentHash);
+    event ClientAuthorized(address indexed client);
+    event ClientRevoked(address indexed client);
+
+    /**
+     * @dev In OZ v5, the Ownable constructor REQUIRES an initial owner address.
+     * Use msg.sender to set the deployer as the initial owner.
+     */
     constructor() Ownable(msg.sender) {
-        // Create genesis block
         blocks.push(Block({
-            blockNumber: 0,
-            flRound: 0,
-            blockType: "GENESIS",
-            contentHash: keccak256("FL Blockchain Genesis"),
+            blockNumber:  0,
+            flRound:      0,
+            blockType:    "GENESIS",
+            contentHash:  keccak256("FL Blockchain Genesis"),
             previousHash: bytes32(0),
-            timestamp: block.timestamp,
-            submitter: msg.sender
+            timestamp:    block.timestamp,
+            submitter:    msg.sender
         }));
     }
-    
+
     function authorizeClient(address client) external onlyOwner {
         authorizedClients[client] = true;
+        emit ClientAuthorized(client);
     }
-    
+
     function revokeClient(address client) external onlyOwner {
         authorizedClients[client] = false;
+        emit ClientRevoked(client);
     }
-    
-    function pause() external onlyOwner {
-        _pause();  // Built-in from Pausable
-    }
-    
-    function unpause() external onlyOwner {
-        _unpause();  // Built-in from Pausable
-    }
-    
-    function addBlock(
-        uint256 flRound,
-        string memory blockType,
-        bytes memory data
-    ) external whenNotPaused returns (uint256) {
-        // Owner can add any block, clients can only add LOCAL blocks
+
+    function pause()   external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
+
+    function addBlock(uint256 flRound, string memory blockType, bytes memory data) external whenNotPaused returns (uint256) {
         if (msg.sender != owner()) {
-            require(authorizedClients[msg.sender], "Not authorized");
-            require(
-                keccak256(bytes(blockType)) == keccak256(bytes("LOCAL")),
-                "Clients can only add LOCAL blocks"
-            );
+            if (!authorizedClients[msg.sender]) revert NotAuthorized(msg.sender);
+            if (keccak256(bytes(blockType)) != keccak256(bytes("LOCAL"))) revert ClientsCanOnlyAddLocalBlocks(blockType);
         }
-        
-        bytes32 contentHash = keccak256(data);
+
+        bytes32 contentHash  = keccak256(data);
         bytes32 previousHash = blocks[blocks.length - 1].contentHash;
-        
+
         blocks.push(Block({
-            blockNumber: blocks.length,
-            flRound: flRound,
-            blockType: blockType,
-            contentHash: contentHash,
+            blockNumber:  blocks.length,
+            flRound:      flRound,
+            blockType:    blockType,
+            contentHash:  contentHash,
             previousHash: previousHash,
-            timestamp: block.timestamp,
-            submitter: msg.sender
+            timestamp:    block.timestamp,
+            submitter:    msg.sender
         }));
-        
-        uint256 newBlockNumber = blocks.length - 1;
-        
-        emit BlockAdded(newBlockNumber, flRound, blockType, contentHash);
-        
-        return newBlockNumber;
+
+        emit BlockAdded(blocks.length - 1, flRound, blockType, contentHash);
+        return blocks.length - 1;
     }
-    
-    function getBlock(uint256 index) external view returns (Block memory) {
-        require(index < blocks.length, "Block does not exist");
-        return blocks[index];
-    }
-    
-    function getBlockCount() external view returns (uint256) {
-        return blocks.length;
-    }
+
+    function getBlockCount() external view returns (uint256) { return blocks.length; }
     
     function verifyChain() external view returns (bool) {
         for (uint256 i = 1; i < blocks.length; i++) {
-            if (blocks[i].previousHash != blocks[i - 1].contentHash) {
-                return false;
-            }
+            if (blocks[i].previousHash != blocks[i - 1].contentHash) return false;
         }
         return true;
-    }
-    
-    function getLatestBlock() external view returns (Block memory) {
-        return blocks[blocks.length - 1];
     }
 }

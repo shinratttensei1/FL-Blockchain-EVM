@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from fl_blockchain_evm.priority_strategy import MedicalFedAvg
 from fl_blockchain_evm.task import Net, test as test_fn, load_data, NUM_CLASSES, SC_NAMES
 from fl_blockchain_evm.blockchain import EVMBlockchain as FLBlockchain
+from fl_blockchain_evm import live_state
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord, RecordDict
 from flwr.serverapp import Grid, ServerApp
 import seaborn as sns
@@ -23,9 +24,11 @@ SC_LABELS = ['NORM', 'MI (Infarction)', 'STTC (ST/T)',
 _blockchain = FLBlockchain()
 
 _round_state: Dict = {
-    # List of {client_id, loss, samples, ...} from this round
-    "train_results": [],
-    "current_round": 0,
+    "train_results":  [],
+    "current_round":  0,
+    "loss_mean":      0.0,
+    "loss_std":       0.0,
+    "threshold":      0.0,
 }
 
 
@@ -40,7 +43,6 @@ def _dev():
 def _plot_cm(cm, rnd, acc, f1):
     if isinstance(cm, list):
         cm = np.array(cm)
-
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='.0f', cmap='Blues',
                 xticklabels=SC_LABELS, yticklabels=SC_LABELS)
@@ -52,24 +54,22 @@ def _plot_cm(cm, rnd, acc, f1):
 
 
 def global_evaluate(server_round, arrays, config=None):
+    live_state.evaluating(server_round)
+
     model = Net()
     dev = _dev()
-
     model.load_state_dict(arrays.to_torch_state_dict())
     model.to(dev)
 
     _, testloader = load_data(0, 10, beta=0)
-
     m = test_fn(model, testloader, dev)
 
     print(f"\n{Y}{'═'*60}{R}")
     print(f"{Y}  [ROUND {server_round}] GLOBAL — 5 Superclasses{R}")
     print(f"{Y}{'═'*60}{R}")
-
     for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
               "precision_macro", "recall_macro", "specificity_macro", "auc_macro"]:
         print(f"   {k:20s}: {m[k]:.4f}")
-
     print(f"   {'── Per-Superclass ──':20s}")
     for i, sc in enumerate(SC_NAMES):
         print(f"     {sc:5s}  P={m['per_class_precision'][i]:.3f}  "
@@ -81,10 +81,9 @@ def global_evaluate(server_round, arrays, config=None):
     _plot_cm(m["confusion_matrix"], server_round, m["accuracy"], m["f1_macro"])
 
     num_clients = len(_round_state["train_results"])
-
     _blockchain.add_global_model_block(
         fl_round=server_round,
-        model_state_dict=arrays.to_torch_state_dict(),  # Aggregated weights
+        model_state_dict=arrays.to_torch_state_dict(),
         accuracy=m["accuracy"],
         f1_macro=m["f1_macro"],
         auc_macro=m["auc_macro"],
@@ -94,35 +93,40 @@ def global_evaluate(server_round, arrays, config=None):
 
     _round_state["train_results"] = []
 
+    chain_length = _blockchain.get_chain_length()
+    chain_valid = _blockchain.verify_chain()
+
     summary = _blockchain.get_round_summary(server_round)
-    print(f"\n{C}  [BLOCKCHAIN] Round {server_round} summary: "
-          f"{summary['local_models']} local blocks | "
-          f"{summary['accepted']} accepted | "
-          f"{summary['rejected']} rejected | "
-          f"1 global block{R}")
+    print(f"\n{C}  [BLOCKCHAIN] Round {server_round} complete — "
+          f"3 blocks written (LOCAL + VOTE + GLOBAL) | "
+          f"Chain length: {summary['total_blocks']}{R}")
 
-    log = {k: m[k] for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
-           "precision_macro", "recall_macro", "specificity_macro", "auc_macro",
-                             "per_class_f1", "per_class_precision", "per_class_recall",
-                             "per_class_auc", "per_class_support", "confusion_matrix",
-                             "num_samples", "num_classes"]}
+    # ── Live state update ──
+    live_state.round_complete(server_round, m, chain_length, chain_valid)
+
+    log = {k: m[k] for k in [
+        "loss", "accuracy", "f1_macro", "f1_weighted",
+        "precision_macro", "recall_macro", "specificity_macro", "auc_macro",
+        "per_class_f1", "per_class_precision", "per_class_recall",
+        "per_class_auc", "per_class_support", "confusion_matrix",
+        "num_samples", "num_classes",
+    ]}
     log.update({
-        "round": server_round,
-        "type": "global",
-        "timestamp": datetime.now().isoformat(),
-        "superclass_names": SC_NAMES,
-        "optimal_thresholds": m.get("optimal_thresholds", [0.5] * 5),
-        "blockchain_blocks": summary["total_blocks"],  # How many blocks so far
+        "round":               server_round,
+        "type":                "global",
+        "timestamp":           datetime.now().isoformat(),
+        "superclass_names":    SC_NAMES,
+        "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * 5),
+        "blockchain_blocks":   summary["total_blocks"],
     })
-
     with open("outputs/results.json", "a") as f:
         json.dump(log, f)
         f.write("\n")
 
     return {
-        "loss": m["loss"],
-        "accuracy": m["accuracy"],
-        "f1_macro": m["f1_macro"],
+        "loss":      m["loss"],
+        "accuracy":  m["accuracy"],
+        "f1_macro":  m["f1_macro"],
         "auc_macro": m["auc_macro"],
     }
 
@@ -131,11 +135,13 @@ _rnd = {"train": 0, "eval": 0}
 
 
 def _print_table(header, rows, cols):
-    widths = [max(len(str(r[i]))
-                  for r in [header] + rows) + 2 for i in range(len(cols))]
+    widths = [max(len(str(r[i])) for r in [header] + rows) + 2
+              for i in range(len(cols))]
     sep = "+" + "+".join("-" * w for w in widths) + "+"
-    def _row(r): return "|" + \
-        "|".join(str(r[i]).center(w) for i, w in enumerate(widths)) + "|"
+
+    def _row(r):
+        return "|" + "|".join(str(r[i]).center(w)
+                              for i, w in enumerate(widths)) + "|"
     print(sep)
     print(_row(header))
     print(sep)
@@ -149,15 +155,18 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     rnd = _rnd["train"]
     _round_state["current_round"] = rnd
 
+    live_state.round_started(rnd)
+
     data = []
-    for m in sorted(metrics_list, key=lambda x: int(x["metrics"].get("client_id", 0))):
+    for m in sorted(metrics_list,
+                    key=lambda x: int(x["metrics"].get("client_id", 0))):
         met = m["metrics"]
         data.append({
-            "client_id":        int(met.get("client_id", 0)),
-            "train_loss":       float(met.get("train_loss", 0)),
-            "num_examples":     int(met.get("num-examples", 0)),
-            "training_time_seconds": float(met.get("training_time_seconds", 0)),
-            "active_classes":   int(met.get("active_classes", 0)),
+            "client_id":      int(met.get("client_id", 0)),
+            "train_loss":     float(met.get("train_loss", 0)),
+            "num_examples":   int(met.get("num-examples", 0)),
+            "training_time":  float(met.get("training_time_seconds", 0)),
+            "active_classes": int(met.get("active_classes", 0)),
         })
 
     _round_state["train_results"] = data
@@ -166,50 +175,57 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     _print_table(
         ["Device", "Loss", "Samples", "Time(s)", "Cls"],
         [[d["client_id"], f"{d['train_loss']:.4f}", d["num_examples"],
-          f"{d['training_time_seconds']:.1f}", d["active_classes"]] for d in data],
+          f"{d['training_time']:.1f}", d["active_classes"]] for d in data],
         ["Device", "Loss", "Samples", "Time(s)", "Cls"],
     )
-
-    print(f"\n{C}  [BLOCKCHAIN] Recording {len(data)} local model blocks...{R}")
 
     losses = [d["train_loss"] for d in data]
     loss_mean = float(np.mean(losses))
     loss_std = float(np.std(losses)) if len(losses) > 1 else 0.0
     threshold = loss_mean + loss_std
 
-    for d in data:
-        _blockchain.add_local_model_block(
-            fl_round=rnd,
-            client_id=d["client_id"],
-            model_state_dict={
-                f"client_{d['client_id']}_round_{rnd}": d["train_loss"]},
-            train_loss=d["train_loss"],
-            num_examples=d["num_examples"],
-            training_time=d["training_time_seconds"],
-            active_classes=d["active_classes"],
-        )
-        accepted = d["train_loss"] <= threshold
-        reason = "loss within threshold" if accepted else f"loss {d['train_loss']:.4f} > threshold {threshold:.4f}"
-        _blockchain.add_vote_block(
-            fl_round=rnd,
-            client_id=d["client_id"],
-            vote=accepted,
-            reason=reason,
-            loss=d["train_loss"],
-        )
+    _round_state["loss_mean"] = loss_mean
+    _round_state["loss_std"] = loss_std
+    _round_state["threshold"] = threshold
+
+    print(f"  Loss  mean={loss_mean:.4f}  std={loss_std:.4f}  "
+          f"threshold={threshold:.4f}")
+
+    print(f"\n{C}  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round {rnd} "
+          f"(async)...{R}")
+
+    votes = _blockchain.add_round_summary_block(
+        fl_round=rnd,
+        clients=data,
+        loss_mean=loss_mean,
+        loss_std=loss_std,
+        threshold=threshold,
+    )
+
+    _print_table(
+        ["Device", "Loss", "Verdict"],
+        [[v["client_id"], f"{v['loss']:.4f}", v["vote"]] for v in votes],
+        ["Device", "Loss", "Verdict"],
+    )
+
+    # ── Live state update ──
+    live_state.clients_trained(data, loss_mean, loss_std, threshold, votes)
 
     with open("outputs/results.json", "a") as f:
         json.dump({
-            "round": rnd,
-            "type": "device_training",
-            "timestamp": datetime.now().isoformat(),
-            "devices": data,
+            "round":      rnd,
+            "type":       "device_training",
+            "timestamp":  datetime.now().isoformat(),
+            "loss_mean":  loss_mean,
+            "loss_std":   loss_std,
+            "threshold":  threshold,
+            "devices":    data,
         }, f)
         f.write("\n")
 
     return MetricRecord({
-        "train_loss_avg": float(np.mean([d["train_loss"] for d in data])),
-        "num_devices": float(len(data)),
+        "train_loss_avg": float(np.mean(losses)),
+        "num_devices":    float(len(data)),
     })
 
 
@@ -220,16 +236,21 @@ def weighted_average(metrics_list, weighting_key):
     if total == 0:
         return MetricRecord({"eval_acc": 0.0, "eval_f1": 0.0})
 
-    def wavg(k): return sum(
-        float(m["metrics"][k]) * int(m["metrics"]["num-examples"])
-        for m in metrics_list) / total
+    def wavg(k):
+        return sum(
+            float(m["metrics"][k]) * int(m["metrics"]["num-examples"])
+            for m in metrics_list
+        ) / total
 
     data = []
-    for m in sorted(metrics_list, key=lambda x: int(x["metrics"]["client_id"])):
+    for m in sorted(metrics_list,
+                    key=lambda x: int(x["metrics"]["client_id"])):
         met = m["metrics"]
-        data.append({k: float(met[k]) if k != "client_id" else int(met[k])
-                     for k in ["client_id", "eval_loss", "eval_acc",
-                               "eval_f1", "eval_auc", "num-examples"]})
+        data.append({
+            k: float(met[k]) if k != "client_id" else int(met[k])
+            for k in ["client_id", "eval_loss", "eval_acc",
+                      "eval_f1", "eval_auc", "num-examples"]
+        })
 
     print(f"\n{G}  ROUND {rnd} EVALUATION: {len(data)} devices{R}")
     _print_table(
@@ -242,17 +263,20 @@ def weighted_average(metrics_list, weighting_key):
 
     with open("outputs/results.json", "a") as f:
         json.dump([{
-            "type": "client_eval",
-            "round": rnd,
+            "type":      "client_eval",
+            "round":     rnd,
             "timestamp": datetime.now().isoformat(),
             **d,
         } for d in data], f)
         f.write("\n")
 
-    return MetricRecord({k: wavg(k) for k in
-                         ["eval_acc", "eval_f1", "eval_f1_weighted",
-                          "eval_precision", "eval_recall",
-                          "eval_specificity", "eval_auc"]})
+    return MetricRecord({
+        k: wavg(k) for k in [
+            "eval_acc", "eval_f1", "eval_f1_weighted",
+            "eval_precision", "eval_recall",
+            "eval_specificity", "eval_auc",
+        ]
+    })
 
 
 app = ServerApp()
@@ -267,6 +291,9 @@ def main(grid: Grid, context: Context):
     if os.path.exists("outputs/results.json"):
         os.remove("outputs/results.json")
 
+    # ── Init live state ──
+    live_state.init(num_rounds, _blockchain.contract_address)
+
     model = Net()
     strategy = MedicalFedAvg(
         fraction_train=frac,
@@ -277,7 +304,8 @@ def main(grid: Grid, context: Context):
     print(f"\n{C}{'═'*60}")
     print(f"  5 Superclasses: {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {_dev()}")
-    print(f"  Ledger: outputs/blockchain_ledger.json")
+    print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
+    print(f"  Dashboard:  open dashboard.html in your browser")
     print(f"{'═'*60}{R}\n")
 
     result = strategy.start(
@@ -288,9 +316,9 @@ def main(grid: Grid, context: Context):
         evaluate_fn=global_evaluate,
     )
 
+    live_state.done(_blockchain.get_chain_length())
     _blockchain.print_chain_summary()
 
     torch.save(result.arrays.to_torch_state_dict(), "final_model.pt")
-    print(f"\n{G}   Done. Model -> final_model.pt")
-    print(f"    Metrics -> outputs/results.json")
-    print(f"    Ledger  -> outputs/blockchain_ledger.json{R}")
+    print(f"\n{G}   Done. Model  -> final_model.pt")
+    print(f"    Metrics -> outputs/results.json{R}")
