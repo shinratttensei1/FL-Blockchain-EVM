@@ -169,9 +169,9 @@ Each round:
 
 | Block type | When written | Payload stored |
 |------------|-------------|----------------|
-| `LOCAL` | After each client trains | `client_id`, `train_loss`, `num_examples`, `training_time`, `active_classes` |
-| `VOTE` | After each client's LOCAL block | `client_id`, `vote` (ACCEPTED/REJECTED), `reason`, `loss` |
-| `GLOBAL` | After global evaluation | `accuracy`, `f1_macro`, `auc_macro`, `loss`, `num_clients` |
+| `LOCAL` | After each round (per client) | `client_id`, `train_loss`, `num_examples`, `training_time`, `active_classes` |
+| `VOTE` | After each round (per client) | `client_id`, `vote` (ACCEPTED/REJECTED), `reason`, `loss` |
+| `GLOBAL` | After each round (global evaluation) | `accuracy`, `f1_macro`, `auc_macro`, `loss`, `num_clients` |
 
 The chain can be integrity-verified at any time via `verifyChain()` on the contract — each block stores the `keccak256` hash of its predecessor.
 
