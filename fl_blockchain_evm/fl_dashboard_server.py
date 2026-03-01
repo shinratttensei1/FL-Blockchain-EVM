@@ -45,7 +45,7 @@ RESULTS_FILE = Path("outputs/results.json")
 
 
 def _init_blockchain():
-    rpc_url = os.getenv("POLYGON_RPC_URL")
+    rpc_url = os.getenv("BASE_SEPOLIA_RPC_URL")
     contract_addr = os.getenv("CONTRACT_ADDRESS")
     if not rpc_url or not contract_addr:
         return None, None
@@ -104,7 +104,8 @@ def _blockchain_state() -> Dict[str, Any]:
         recent = []
         start = max(0, chain_length - 6)
         for i in range(start, chain_length):
-            b = _contract.functions.getBlock(i).call()
+            # Use blocks mapping instead of getBlock function
+            b = _contract.functions.blocks(i).call()
             recent.append({
                 "index":       b[0],
                 "fl_round":    b[1],

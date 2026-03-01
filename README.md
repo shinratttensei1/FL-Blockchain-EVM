@@ -28,7 +28,7 @@
 
 ## Overview
 
-This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Sepolia testnet) via a custom Solidity smart contract.
+This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Base Sepolia testnet) via a custom Solidity smart contract.
 
 **Clinical task:** Classify each ECG recording into one or more of **5 superclasses** defined by the PTB-XL standard:
 
@@ -65,7 +65,7 @@ flowchart TD
     subgraph ON_CHAIN ["Blockchain Layer"]
         EVM_BRIDGE["blockchain.py (Web3.py)"]
         CONTRACT["SimpleFLBlockchain (Solidity)"]
-        NETWORK_TAGP["Sepolia Testnet"]
+        NETWORK_TAGP["Base Sepolia Testnet"]
     end
 
     SERVER ---->|"Write Events"| EVM_BRIDGE
@@ -240,8 +240,8 @@ python-dotenv
 
 ### Other
 
-- Sepolia testnet ETH (from a faucet) for gas fees
-- An Alchemy or Infura RPC endpoint for Sepolia
+- Base Sepolia testnet ETH (from a faucet) for gas fees
+- An Alchemy or Base public RPC endpoint for Base Sepolia
 
 ---
 
@@ -301,19 +301,19 @@ No Hardhat or local Node setup is needed. The contract is deployed directly from
 2. Create a new file and paste the contents of `SimpleFLBlockchain.sol`.
 3. In the **Solidity Compiler** tab, select compiler version `0.8.20` and compile.
 4. In the **Deploy & Run Transactions** tab:
-   - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Sepolia**).
+   - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Base Sepolia**).
    - Click **Deploy**.
 5. After deployment, copy the **contract address** from the Remix console.
 6. In the **Compilation Details** panel, copy the **ABI** and save it as `FLBlockchain_abi.json` in the project root.
 
-> **Note:** You need Sepolia testnet ETH for gas. Get some from [sepoliafaucet.com](https://sepoliafaucet.com) or the [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia).
+> **Note:** You need Base Sepolia testnet ETH for gas. Get some from the [Coinbase Faucet](https://www.coinbase.com/faucets/base-sepolia-faucet).
 
 ### 6. Configure environment variables
 
 Create a `.env` file in the project root (never commit this file):
 
 ```env
-SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<YOUR_API_KEY>
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 PRIVATE_KEY=0x<YOUR_WALLET_PRIVATE_KEY>
 CONTRACT_ADDRESS=0x<DEPLOYED_CONTRACT_ADDRESS>
 ```
@@ -351,7 +351,7 @@ All commands assume you are in the project root with the virtual environment act
 flwr run .
 ```
 
-This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Sepolia, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
+This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Base Sepolia, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
 
 
 
@@ -415,7 +415,7 @@ model.eval()
 
 ## Smart Contract
 
-**`SimpleFLBlockchain.sol`** — deployed on Ethereum Sepolia testnet.
+**`SimpleFLBlockchain.sol`** — deployed on Base Sepolia testnet.
 
 Inherits from OpenZeppelin's `Ownable` and `Pausable`. Key design decisions:
 
@@ -446,5 +446,5 @@ The Python wrapper (`blockchain.py`) serializes all metadata as JSON, encodes it
 - **Simple loss-threshold filter** — the current voting mechanism flags outliers by `mean + std` of training loss. A stronger defense (e.g., cosine similarity filtering, Krum, or Bulyan) would be more robust against model poisoning.
 - **All clients still contribute** — flagged clients are written as REJECTED on-chain for auditability, but their weights are still included in aggregation. A stricter setup would exclude rejected clients from `FedAvg`.
 - **Single-server bottleneck** — the server holds the global model and writes all VOTE/GLOBAL blocks. A fully decentralized setup (per the BFMIL paper) would distribute aggregation to the blockchain itself via smart contracts.
-- **Sepolia gas costs** — each round writes `2K + 1` transactions (K clients × LOCAL + VOTE, plus 1 GLOBAL). At default settings (10 clients, 5 rounds) this is 105 transactions. On mainnet this would be prohibitively expensive.
+- **Base Sepolia gas costs** — each round writes 3 transactions (LOCAL + VOTE + GLOBAL summary blocks). At default settings (10 clients, 10 rounds) gas costs are minimal due to Base's low fees, but on mainnet this would be prohibitively expensive.
 - **Evaluation proxy** — global evaluation currently uses the test split of a single partition rather than the full held-out set. A proper setup would aggregate evaluation across all partitions.

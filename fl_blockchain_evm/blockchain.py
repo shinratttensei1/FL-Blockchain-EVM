@@ -1,15 +1,14 @@
 """Simplified EVM Blockchain wrapper for FLBlockchain contract.
 
-Network: Polygon Amoy (Layer 2 testnet)
-  - Chain ID : 80002
-  - RPC      : https://rpc-amoy.polygon.technology  (or Alchemy/Infura endpoint)
-  - Faucet   : https://faucet.polygon.technology
-  - Explorer : https://amoy.polygonscan.com
-  - Block time: ~2 seconds  (vs ~12s on Sepolia L1)
-  - Gas cost : near-zero MATIC per transaction
+Network: Base Sepolia (Ethereum Layer 2 testnet)
+  - Chain ID : 84532
+  - RPC      : https://sepolia.base.org  (or Alchemy/Infura endpoint)
+  - Faucet   : https://www.coinbase.com/faucets/base-sepolia-faucet
+  - Explorer : https://sepolia.basescan.org
+  - Block time: ~2 seconds
+  - Gas cost : very low base fees + Ethereum Sepolia security
 
-Changes from original:
-  - Migrated from Sepolia (L1) to Polygon Amoy (L2)
+Features:
   - _send_transaction supports fire-and-wait pattern: returns tx_hash immediately
     without blocking; call wait_for_pending() at end of round to confirm all.
   - add_round_summary_block: writes ONE LOCAL block and ONE VOTE block summarising
@@ -31,14 +30,14 @@ class EVMBlockchain:
 
     def __init__(self):
         # Load config
-        self.rpc_url = os.getenv("POLYGON_RPC_URL")
+        self.rpc_url = os.getenv("BASE_SEPOLIA_RPC_URL")
         self.private_key = os.getenv("PRIVATE_KEY")
         self.contract_address = os.getenv("CONTRACT_ADDRESS")
 
         if not all([self.rpc_url, self.private_key, self.contract_address]):
             raise ValueError("Missing env variables. Check .env file.")
 
-        # Connect to Polygon Amoy (L2)
+        # Connect to Base Sepolia
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
 
         if not self.w3.is_connected():
