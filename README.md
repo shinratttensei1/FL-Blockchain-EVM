@@ -240,8 +240,17 @@ python-dotenv
 
 ### Other
 
-- Base Sepolia testnet ETH (from a faucet) for gas fees
-- An Alchemy or Base public RPC endpoint for Base Sepolia
+- **Base Sepolia testnet ETH** for gas fees
+  - Faucet: Get the Sepolia Testnet ETH first, then use any bridge to swap Sepolia ETH with Base Sepolia ETH. I used [https://superbridge.app](https://superbridge.app)
+  - You'll need ~0.01-0.03 ETH for a full 10-round simulation
+- **Base Sepolia RPC endpoint**
+  - Public RPC: `https://sepolia.base.org` (free, no API key needed)
+  - Or use Alchemy/Infura for better reliability
+- **Base Sepolia Network Details**
+  - Chain ID: 84532
+  - Explorer: [https://sepolia.basescan.org](https://sepolia.basescan.org)
+  - Block time: ~2 seconds
+  - Gas costs: Very low (L2 benefits)
 
 ---
 
@@ -250,8 +259,8 @@ python-dotenv
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-username>/fl-blockchain-ecg.git
-cd fl-blockchain-ecg
+git clone https://github.com/shinratttensei1/FL-Blockchain-EVM.git
+cd FL-Blockchain-EVM
 ```
 
 ### 2. Create a virtual environment
@@ -265,7 +274,7 @@ source .venv/bin/activate        # Linux / macOS
 ### 3. Install Python dependencies
 
 ```bash
-pip install -e .
+pip install -r requirements.txt .
 # or
 pip install flwr torch web3 wfdb numpy pandas scikit-learn matplotlib seaborn python-dotenv
 ```
@@ -307,6 +316,13 @@ No Hardhat or local Node setup is needed. The contract is deployed directly from
 6. In the **Compilation Details** panel, copy the **ABI** and save it as `FLBlockchain_abi.json` in the project root.
 
 > **Note:** You need Base Sepolia testnet ETH for gas. Get some from the [Coinbase Faucet](https://www.coinbase.com/faucets/base-sepolia-faucet).
+
+**To add Base Sepolia to MetaMask:**
+- Network Name: Base Sepolia
+- RPC URL: `https://sepolia.base.org`
+- Chain ID: 84532
+- Currency Symbol: ETH
+- Block Explorer: `https://sepolia.basescan.org`
 
 ### 6. Configure environment variables
 
@@ -353,7 +369,50 @@ flwr run .
 
 This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Base Sepolia, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
 
+**What happens during training:**
+- Each round writes exactly **3 transactions** to Base Sepolia:
+  1. `LOCAL` block - aggregated client training data
+  2. `VOTE` block - acceptance/rejection decisions
+  3. `GLOBAL` block - global model evaluation metrics
+- Results are saved to `outputs/results.json` (JSONL format)
+- Confusion matrices saved as `outputs/cm_round_N.png`
+- Final model saved as `final_model.pt`
 
+### Monitor training with the live dashboard
+
+**Step 1:** Start the dashboard backend server (in a second terminal):
+
+```bash
+source venv/bin/activate  # or .venv/bin/activate
+python -m fl_blockchain_evm.fl_dashboard_server
+```
+
+You should see:
+```
+INFO:     Started server process
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+**Step 2:** Open the dashboard in your browser:
+
+**Option A** - Via the web server (recommended):
+- Open: [http://localhost:8000](http://localhost:8000)
+
+**Option B** - Direct file access:
+- Open `fl_blockchain_evm/fl_topology.html` directly in your browser
+- The HTML will connect to the API at `localhost:8000`
+
+> **Important:** The backend server must be running for the dashboard to display blockchain data and live metrics.
+
+The dashboard shows:
+- ✅ Live network topology with animated packet flows
+- 📊 Real-time training metrics (accuracy, F1, AUC)
+- 🎯 Per-client training loss and vote decisions
+- 📈 Historical metrics charts
+- 🔗 **Blockchain ledger** with live Base Sepolia connection
+- 🎨 Confusion matrix heatmap
+
+> **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base Sepolia to display actual blockchain blocks.
 
 ### Verify blockchain integrity after the run
 

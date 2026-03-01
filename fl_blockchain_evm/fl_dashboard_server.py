@@ -233,11 +233,11 @@ def stream():
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    """Serve the dashboard HTML if dashboard.html exists next to this file."""
-    p = Path("fl_dashboard.html")
-    if p.exists():
-        return HTMLResponse(content=p.read_text())
-    return HTMLResponse("<h1>Dashboard HTML not found. Place fl_dashboard.html here.</h1>")
+    """Serve the dashboard HTML."""
+    html_path = Path(__file__).parent / "fl_topology.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text())
+    return HTMLResponse("<h1>Dashboard HTML not found at fl_blockchain_evm/fl_topology.html</h1>")
 
 
 if __name__ == "__main__":
