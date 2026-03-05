@@ -15,14 +15,16 @@
    - [Federated Learning Loop](#federated-learning-loop)
    - [Blockchain Ledger](#blockchain-ledger)
    - [Voting & Filtering](#voting--filtering)
-5. [Research Background](#research-background)
-6. [Requirements](#requirements)
-7. [Setup & Installation](#setup--installation)
-8. [Configuration](#configuration)
-9. [Launching the Experiment](#launching-the-experiment)
-10. [Outputs](#outputs)
-11. [Smart Contract](#smart-contract)
-12. [Limitations & Future Work](#limitations--future-work)
+   - [IPFS Off-Chain Storage](#ipfs-off-chain-storage)
+5. [Live Dashboard](#live-dashboard)
+6. [Research Background](#research-background)
+7. [Requirements](#requirements)
+8. [Setup & Installation](#setup--installation)
+9. [Configuration](#configuration)
+10. [Launching the Experiment](#launching-the-experiment)
+11. [Outputs](#outputs)
+12. [Smart Contract](#smart-contract)
+13. [Limitations & Future Work](#limitations--future-work)
 
 ---
 
@@ -52,7 +54,7 @@ flowchart TD
         direction TB
         SERVER[["Flower Server (MedicalFedAvg)"]]
         
-        subgraph CLIENTS ["Clients"]
+        subgraph CLIENTS ["Clients (RP4 Edge Devices)"]
             C0["Client 0 (Train)"]
             C1["Client 1 (Train)"]
             CX["..."]
@@ -62,13 +64,21 @@ flowchart TD
         SERVER <==>|"Weights & Updates"| CLIENTS
     end
 
+    subgraph OFF_CHAIN ["IPFS Layer (Off-Chain)"]
+        IPFS_BRIDGE["ipfs_storage.py"]
+        PINATA["Pinata / web3.storage"]
+    end
+
     subgraph ON_CHAIN ["Blockchain Layer"]
         EVM_BRIDGE["blockchain.py (Web3.py)"]
         CONTRACT["SimpleFLBlockchain (Solidity)"]
         NETWORK_TAGP["Base Sepolia Testnet"]
     end
 
-    SERVER ---->|"Write Events"| EVM_BRIDGE
+    SERVER ---->|"Pin Model + Metrics"| IPFS_BRIDGE
+    IPFS_BRIDGE ---->|"HTTP API"| PINATA
+    PINATA -.->|"CID"| IPFS_BRIDGE
+    SERVER ---->|"Write Events + CIDs"| EVM_BRIDGE
     EVM_BRIDGE ---->|"Web3 Tx"| CONTRACT
     CONTRACT -.-> NETWORK_TAGP
 ```
@@ -83,7 +93,13 @@ fl_blockchain_evm/
 ├── client_app.py            # Flower client (train + evaluate handlers)
 ├── server_app.py            # Flower server (aggregation, evaluation, blockchain writes)
 ├── blockchain.py            # Web3 wrapper for the smart contract
+├── ipfs_storage.py          # IPFS off-chain storage (Pinata/kubo/web3.storage)
 ├── priority_strategy.py     # MedicalFedAvg — equal-weight aggregation strategy
+├── live_state.py            # Thread-safe state container for dashboard streaming
+│
+├── fl_dashboard_server.py   # FastAPI backend for live dashboard (REST + SSE)
+├── fl_dashboard.html        # Full dashboard — topology, metrics, blockchain, IPFS
+├── fl_topology.html         # Lightweight topology-only dashboard (legacy)
 │
 ├── SimpleFLBlockchain.sol   # Solidity smart contract (deployed via Remix IDE)
 ├── FLBlockchain_abi.json    # ABI copied from Remix after deployment
@@ -187,6 +203,78 @@ Clients whose `train_loss > threshold` are marked **REJECTED** on-chain. This is
 
 ---
 
+### IPFS Off-Chain Storage
+
+The system uses **IPFS** (InterPlanetary File System) as a content-addressable off-chain storage layer, optimised for **Raspberry Pi 4** edge devices:
+
+**What is stored on IPFS per round:**
+
+| Artifact | IPFS Key | Approx. Size | Purpose |
+|----------|----------|-------------|--------|
+| Training metrics | `round_N_local` | ~5 KB | Per-client loss, samples, timing |
+| Vote decisions | `round_N_votes` | ~3 KB | Accept/reject verdicts |
+| Global model weights | `round_N_global_model` | ~250 KB (gzip) | Full SE-ResNet state_dict |
+| Evaluation metrics | `round_N_global_metrics` | ~2 KB | Accuracy, F1, AUC, per-class |
+
+**RP4 design decisions:**
+- **No IPFS daemon on devices** — uses Pinata HTTP API (saves ~200 MB RAM vs kubo)
+- **Gzip compression** — 200K-param model: 800 KB → ~250 KB
+- **BytesIO streaming** — no temp files (avoids SD card wear on RP4)
+- **Exponential backoff with jitter** — handles flaky Wi-Fi on edge deployments
+- **Graceful degradation** — if IPFS is unreachable, FL training continues normally
+
+**Tamper-proof linkage:** Each on-chain block payload includes the IPFS CID of its detailed off-chain data. Since the blockchain stores `keccak256(payload)`, any modification to either the IPFS content or the CID reference would be detected by `verifyChain()`.
+
+**Supported backends:**
+
+| Backend | Best for | RAM overhead | Setup |
+|---------|----------|-------------|-------|
+| `pinata` | RP4 devices (recommended) | ~2 MB | Free API key from [Pinata](https://app.pinata.cloud) |
+| `web3storage` | Alternative cloud | ~2 MB | Free token from [web3.storage](https://web3.storage) |
+| `local` | Server-hosted IPFS | ~200 MB (kubo) | Run `ipfs daemon` on server only |
+
+**Verifying IPFS content:**
+
+```python
+from fl_blockchain_evm.ipfs_storage import IPFSStorage
+
+ipfs = IPFSStorage(backend="pinata")
+
+# Fetch a global model checkpoint from any round
+sd = ipfs.fetch_model("QmXyz...")  # CID from results.json or on-chain data
+
+# Verify content integrity
+assert ipfs.verify_content("QmXyz...", expected_sha256="abc123...")
+```
+
+---
+
+## Live Dashboard
+
+The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a FastAPI backend (`fl_dashboard_server.py`). It connects to the running simulation via SSE (Server-Sent Events) and to the Base Sepolia blockchain directly.
+
+**Features:**
+
+| Panel | What it shows |
+|-------|---------------|
+| **Network Topology** | Animated canvas with 10 device nodes, FL server, blockchain node, and IPFS node — live packet animations for weight transfers, blockchain writes, and IPFS pins |
+| **Stat Strip** | Round, Accuracy, F1 Macro, AUC Macro, Chain Blocks, IPFS Pins, Active Clients |
+| **Client Training Table** | Per-device loss, sample count, duration, active classes, accept/reject vote |
+| **Loss Threshold Votes** | Visual bar chart of each client's loss vs. threshold |
+| **Metrics History Chart** | Hand-drawn line chart of accuracy, F1, AUC over rounds |
+| **Per-Superclass F1** | Bar breakdown for NORM, MI, STTC, CD, HYP |
+| **Confusion Matrix** | 5×5 heatmap with intensity shading |
+| **Blockchain Ledger** | Live connection to Base Sepolia — shows recent blocks (LOCAL/VOTE/GLOBAL), chain validity badge, expandable full history |
+| **IPFS Off-Chain Storage** | Active/disabled status, total pin count, per-round CID list with clickable Pinata gateway links |
+
+**Interactive controls:**
+- **Round slider** — scrub through historical rounds to inspect past metrics
+- **LIVE button** — snap back to the latest round
+- **VIEW ALL** — expand the blockchain ledger to show all blocks
+- **Node tooltips** — hover over any topology node for detailed state info
+
+---
+
 ## Research Background
 
 This project draws conceptually from three papers:
@@ -229,6 +317,7 @@ python >= 3.10
 flwr >= 1.10
 torch >= 2.0
 web3 >= 6.0
+requests >= 2.31
 wfdb
 numpy
 pandas
@@ -240,6 +329,10 @@ python-dotenv
 
 ### Other
 
+- **(Optional) IPFS pinning service** for off-chain model storage
+  - [Pinata](https://app.pinata.cloud) — free tier: 500 pins, 1 GB (recommended for RP4)
+  - Or [web3.storage](https://web3.storage) — free tier: 5 GB
+  - Or local IPFS node (kubo) running on the server machine
 - **Base Sepolia testnet ETH** for gas fees
   - Faucet: Get the Sepolia Testnet ETH first, then use any bridge to swap Sepolia ETH with Base Sepolia ETH. I used [https://superbridge.app](https://superbridge.app)
   - You'll need ~0.01-0.03 ETH for a full 10-round simulation
@@ -332,6 +425,11 @@ Create a `.env` file in the project root (never commit this file):
 BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 PRIVATE_KEY=0x<YOUR_WALLET_PRIVATE_KEY>
 CONTRACT_ADDRESS=0x<DEPLOYED_CONTRACT_ADDRESS>
+
+# IPFS off-chain storage (optional — leave IPFS_BACKEND empty to disable)
+IPFS_BACKEND=pinata
+PINATA_JWT=<YOUR_PINATA_JWT_TOKEN>
+# PINATA_GATEWAY=https://gateway.pinata.cloud/ipfs/   # optional override
 ```
 
 ---
@@ -395,24 +493,20 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 
 **Step 2:** Open the dashboard in your browser:
 
-**Option A** - Via the web server (recommended):
 - Open: [http://localhost:8000](http://localhost:8000)
-
-**Option B** - Direct file access:
-- Open `fl_blockchain_evm/fl_topology.html` directly in your browser
-- The HTML will connect to the API at `localhost:8000`
 
 > **Important:** The backend server must be running for the dashboard to display blockchain data and live metrics.
 
 The dashboard shows:
-- ✅ Live network topology with animated packet flows
-- 📊 Real-time training metrics (accuracy, F1, AUC)
+- ✅ Live network topology with animated packet flows (devices → server → blockchain → IPFS)
+- 📊 Real-time training metrics (accuracy, F1, AUC) with interactive round slider
 - 🎯 Per-client training loss and vote decisions
 - 📈 Historical metrics charts
-- 🔗 **Blockchain ledger** with live Base Sepolia connection
-- 🎨 Confusion matrix heatmap
+- 🔗 **Blockchain ledger** with live Base Sepolia connection and chain validity indicator
+- 📡 **IPFS panel** with per-round CID links to Pinata gateway
+- 🎨 Confusion matrix heatmap and per-superclass F1 bars
 
-> **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base Sepolia to display actual blockchain blocks.
+> **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base Sepolia to display actual blockchain blocks and reads IPFS CIDs from training results.
 
 ### Verify blockchain integrity after the run
 
@@ -435,12 +529,28 @@ outputs/
 ├── results.json          # JSONL — one JSON object per line, types:
 │                         #   "device_training"  — per-round client metrics
 │                         #   "client_eval"      — per-round client evaluation
-│                         #   "global"           — global evaluation per round
+│                         #   "global"           — global eval + ipfs_cids (if enabled)
 ├── cm_round_1.png        # Confusion matrix heatmap, round 1
 ├── cm_round_2.png        # ...
 └── cm_round_N.png
 
 final_model.pt            # PyTorch state dict of the final global model
+```
+
+When IPFS is enabled, each `"global"` record in `results.json` includes an `ipfs_cids` field:
+
+```json
+{
+  "type": "global",
+  "round": 3,
+  "accuracy": 0.812,
+  "ipfs_cids": {
+    "local_cid": "QmXyz...",
+    "vote_cid": "QmAbc...",
+    "model_cid": "QmDef...",
+    "metrics_cid": "QmGhi..."
+  }
+}
 ```
 
 ### Reading results

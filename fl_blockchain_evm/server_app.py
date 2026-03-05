@@ -119,6 +119,11 @@ def global_evaluate(server_round, arrays, config=None):
         "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * 5),
         "blockchain_blocks":   summary["total_blocks"],
     })
+    # Include IPFS CIDs if available
+    round_cids = _blockchain.get_round_cids(server_round)
+    if round_cids:
+        log["ipfs_cids"] = round_cids
+        live_state.ipfs_pinned(server_round, round_cids)
     with open("outputs/results.json", "a") as f:
         json.dump(log, f)
         f.write("\n")
@@ -301,10 +306,12 @@ def main(grid: Grid, context: Context):
         evaluate_metrics_aggr_fn=weighted_average,
     )
 
+    ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
     print(f"\n{C}{'═'*60}")
     print(f"  5 Superclasses: {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {_dev()}")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
+    print(f"  IPFS:       {ipfs_status}")
     print(f"  Dashboard:  open dashboard.html in your browser")
     print(f"{'═'*60}{R}\n")
 

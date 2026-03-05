@@ -69,7 +69,7 @@ header{background:var(--white);border-bottom:2px solid var(--black);padding:0 32
 .cm{font-family:var(--mono);font-size:9px;color:var(--light);}
 .cb{padding:18px 20px;}
 
-.sstrip{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:var(--rule);}
+.sstrip{grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:0;background:var(--rule);}
 .sstrip .card{border-right:1px solid var(--rule);}
 .sstrip .card:last-child{border-right:none;}
 .stat{padding:20px 20px 18px;}
@@ -143,6 +143,22 @@ canvas#mchart{display:block;width:100%;height:100%;}
 .binfo{font-family:var(--mono);font-size:9px;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .btime{font-family:var(--mono);font-size:9px;color:var(--light);white-space:nowrap;}
 
+/* IPFS card */
+.ipfscard{grid-column:1/3;}
+.ipfs-status{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
+.ipfs-status.active{background:#f0e6ff;color:#7c3aed;border-color:#ddd6fe;}
+.ipfs-status.disabled{background:var(--off);color:var(--light);border-color:var(--rule);}
+.ipfs-pins{display:flex;flex-direction:column;gap:0;}
+.ipfs-round{border-bottom:1px solid var(--rule);padding:10px 0;}
+.ipfs-round:last-child{border-bottom:none;}
+.ipfs-round-hdr{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--dark);margin-bottom:6px;}
+.ipfs-cid-row{display:grid;grid-template-columns:100px 1fr auto;align-items:center;gap:8px;padding:3px 0;}
+.ipfs-cid-label{font-family:var(--mono);font-size:9px;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
+.ipfs-cid{font-family:var(--mono);font-size:9px;color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ipfs-cid a{color:#7c3aed;text-decoration:none;}
+.ipfs-cid a:hover{text-decoration:underline;}
+.ipfs-badge{display:inline-flex;padding:1px 5px;border:1px solid #ddd6fe;border-radius:2px;font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;background:#f0e6ff;color:#7c3aed;white-space:nowrap;}
+
 .empty{padding:36px 20px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--light);letter-spacing:.06em;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--rule);}
@@ -151,7 +167,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
   .mgrid{grid-template-columns:1fr 1fr;}
   .sstrip{grid-template-columns:repeat(3,1fr);}
   .clcard,.chcard,.cmcard{grid-column:1/-1;}
-  .vcard,.pccard,.bccard{grid-column:1/-1;}
+  .vcard,.pccard,.bccard,.ipfscard{grid-column:1/-1;}
 }
 @media(max-width:600px){
   .mgrid{grid-template-columns:1fr;}
@@ -180,6 +196,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
       <div class="leg"><div class="leg-swatch accepted"></div>Accepted</div>
       <div class="leg"><div class="leg-swatch rejected"></div>Rejected</div>
       <div class="leg"><div class="leg-swatch aggregating"></div>Aggregating</div>
+      <div class="leg"><div class="leg-swatch" style="background:#f0e6ff;border-color:#7c3aed;"></div>IPFS</div>
     </div>
   </div>
   <div class="topo-wrap">
@@ -205,6 +222,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
       <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">5-superclass</div></div>
       <div class="card stat"><div class="slbl">AUC Macro</div><div class="sval" id="sAUC">—</div><div class="ssub">ROC area</div></div>
       <div class="card stat"><div class="slbl">Chain Blocks</div><div class="sval a" id="sBlocks">—</div><div class="ssub">Base Sepolia</div></div>
+      <div class="card stat"><div class="slbl">IPFS Pins</div><div class="sval" id="sPins" style="color:#7c3aed;">—</div><div class="ssub" id="sPinsSub">off-chain</div></div>
       <div class="card stat"><div class="slbl">Active Clients</div><div class="sval" id="sClients">—</div><div class="ssub">devices</div></div>
     </div>
     <div class="card rcard">
@@ -248,6 +266,16 @@ canvas#mchart{display:block;width:100%;height:100%;}
       </div>
       <div class="cb" id="bcblocks"><div class="empty">Connecting to Base Sepolia</div></div>
     </div>
+    <div class="card ipfscard">
+      <div class="ch">
+        <span class="ct">IPFS Off-Chain Storage</span>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span class="ipfs-status disabled" id="ipfsStatus">Disabled</span>
+          <span class="cm" id="ipfsPinCount">—</span>
+        </div>
+      </div>
+      <div class="cb" id="ipfsContent"><div class="empty">IPFS not configured — set IPFS_BACKEND in .env</div></div>
+    </div>
   </div>
 </div>
 
@@ -272,7 +300,9 @@ let devState  = Array(N).fill('idle');   // per-device state string
 let devData   = Array(N).fill(null);     // per-device metrics object
 let srvState  = 'idle';
 let bcState   = 'idle';
+let ipfsState = 'idle';
 let bcCount   = 0;
+let ipfsPinCount = 0;
 let curRound  = 0;
 let globalM   = null;
 let packets   = [];                      // moving data packets
@@ -289,6 +319,8 @@ const STATES = {
   broadcasting: { fill:'#eff6ff', stroke:'#1d4ed8', glow:'#1d4ed8',   label:'Broadcasting' },
   writing:      { fill:'#fffbeb', stroke:'#b45309', glow:'#b45309',   label:'Writing'      },
   confirmed:    { fill:'#edf7f1', stroke:'#1a7a3c', glow:'#1a7a3c',   label:'Confirmed'    },
+  pinning:      { fill:'#f0e6ff', stroke:'#7c3aed', glow:'#7c3aed',   label:'Pinning'      },
+  pinned:       { fill:'#f0e6ff', stroke:'#7c3aed', glow:null,        label:'Pinned'       },
 };
 const sc = s => STATES[s] || STATES.idle;
 
@@ -299,7 +331,8 @@ function layout() {
   const ring = Math.min(W * 0.34, H * 0.40);
 
   nodes.server     = { x: cx,          y: cy,           r: 30, kind:'server',     label:'FL Server',    sub:'MedicalFedAvg' };
-  nodes.blockchain = { x: cx + W*0.30, y: cy,           r: 24, kind:'blockchain', label:'Blockchain',   sub:'Base Sepolia'  };
+  nodes.blockchain = { x: cx + W*0.26, y: cy - H*0.22,  r: 24, kind:'blockchain', label:'Blockchain',   sub:'Base Sepolia'  };
+  nodes.ipfs       = { x: cx + W*0.26, y: cy + H*0.22,  r: 22, kind:'ipfs',       label:'IPFS',         sub:'Off-chain'     };
 
   for (let i = 0; i < N; i++) {
     const a = (2 * Math.PI * i / N) - Math.PI / 2;
@@ -320,6 +353,7 @@ function drawNode(key) {
   if      (n.kind === 'device')     state = devState[n.idx];
   else if (n.kind === 'server')     state = srvState;
   else if (n.kind === 'blockchain') state = bcState;
+  else if (n.kind === 'ipfs')       state = ipfsState;
   const col = sc(state);
 
   // Glow
@@ -393,6 +427,31 @@ function drawNode(key) {
     ctx.moveTo(-s * 0.05, 0);
     ctx.lineTo( s * 0.05, 0);
     ctx.stroke();
+  } else if (n.kind === 'ipfs') {
+    // IPFS icon: triangle of connected dots (distributed storage)
+    const s = n.r * 0.48;
+    const pts = [
+      [0, -s * 0.7],
+      [-s * 0.65, s * 0.5],
+      [s * 0.65, s * 0.5],
+    ];
+    // Lines between points
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[1][0], pts[1][1]);
+    ctx.lineTo(pts[2][0], pts[2][1]);
+    ctx.closePath();
+    ctx.stroke();
+    // Dots at vertices
+    for (const [px, py] of pts) {
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(0, s * 0.1, 2, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.restore();
@@ -417,6 +476,8 @@ function drawNode(key) {
     else if (state === 'broadcasting')  sub = 'broadcasting…';
     else if (globalM)                   sub = `acc ${(globalM.accuracy*100).toFixed(1)}%`;
     else                                sub = n.sub;
+  } else if (n.kind === 'ipfs') {
+    sub = ipfsPinCount > 0 ? `${ipfsPinCount} pins` : n.sub;
   } else {
     sub = bcCount > 0 ? `${bcCount} blocks` : n.sub;
   }
@@ -485,6 +546,30 @@ function drawEdges() {
   ctx.lineTo(bc.x, bc.y);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  // Server → IPFS edge
+  const ipfsN = nodes.ipfs;
+  if (ipfsN) {
+    const ipfsActive = ipfsState !== 'idle';
+    ctx.beginPath();
+    ctx.strokeStyle = ipfsActive ? '#7c3aed' : '#e2e2de';
+    ctx.lineWidth   = ipfsActive ? 2 : 1;
+    ctx.setLineDash(ipfsActive ? [] : [5, 5]);
+    ctx.moveTo(sv.x, sv.y);
+    ctx.lineTo(ipfsN.x, ipfsN.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Edge label
+    const imx = (sv.x + ipfsN.x) / 2, imy = (sv.y + ipfsN.y) / 2 + 12;
+    if (ipfsActive) {
+      ctx.font      = '9px IBM Plex Mono';
+      ctx.fillStyle = '#7c3aed';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('off-chain', imx, imy);
+    }
+  }
 
   // Edge label between server and blockchain
   const mx = (sv.x + bc.x) / 2, my = (sv.y + bc.y) / 2 - 10;
@@ -560,6 +645,7 @@ function drawFrame() {
   for (let i = 0; i < N; i++) drawNode(`d${i}`);
   drawNode('server');
   drawNode('blockchain');
+  drawNode('ipfs');
   drawRoundBadge();
   stepPackets();
   requestAnimationFrame(drawFrame);
@@ -594,7 +680,7 @@ function updateTopo(state) {
 
   if (state.status === 'idle' || !curRound) {
     devState = Array(N).fill('idle');
-    srvState = 'idle'; bcState = 'idle'; return;
+    srvState = 'idle'; bcState = 'idle'; ipfsState = 'idle'; return;
   }
 
   const devices = tr?.devices || [];
@@ -618,6 +704,18 @@ function updateTopo(state) {
   bcState = state.blockchain?.chain_valid === true && bcCount > 1 ? 'confirmed'
           : bcCount > 0 ? 'writing'
           : 'idle';
+
+  // IPFS state
+  const ipfs = state.ipfs || {};
+  ipfsPinCount = ipfs.total_pins || 0;
+  if (ipfs.enabled && ipfsPinCount > 0) {
+    const hasCurrentRound = ipfs.rounds?.[String(curRound)];
+    ipfsState = hasCurrentRound ? 'pinned' : (gl ? 'pinned' : 'pinning');
+  } else if (ipfs.enabled) {
+    ipfsState = gl ? 'idle' : 'pinning';
+  } else {
+    ipfsState = 'idle';
+  }
 }
 
 // ── Trigger packets on phase changes ──
@@ -654,9 +752,11 @@ function triggerPackets(state) {
 
   // Round done — server writes to blockchain, broadcasts new model
   if (phase === 'done') {
-    showBanner(`Round ${rnd} — Writing to blockchain`);
+    showBanner(`Round ${rnd} — Writing to blockchain & IPFS`);
     setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'LOCAL', 0.014), 200);
+    setTimeout(() => spawn('server', 'ipfs',       '#7c3aed', 'model', 0.016), 400);
     setTimeout(() => spawn('server', 'blockchain', '#b45309', 'VOTE',  0.013), 900);
+    setTimeout(() => spawn('server', 'ipfs',       '#7c3aed', 'metrics', 0.015), 1100);
     setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'GLOBAL',0.012), 1600);
     setTimeout(() => {
       showBanner(`Round ${rnd} complete — Broadcasting new model`);
@@ -695,6 +795,14 @@ cv.addEventListener('mousemove', e => {
     rows = [`Network: Base Sepolia`, `State: ${bcState}`, `Blocks: ${bcCount}`];
     if (state_cache?.blockchain?.chain_valid != null)
       rows.push(`Chain valid: ${state_cache.blockchain.chain_valid ? 'Yes' : 'No'}`);
+  } else if (n.kind === 'ipfs') {
+    const ipfs = state_cache?.ipfs || {};
+    rows = [`State: ${ipfsState}`, `Backend: ${ipfs.enabled ? 'Pinata' : 'Disabled'}`, `Total pins: ${ipfs.total_pins || 0}`];
+    const roundCids = ipfs.rounds?.[String(curRound)];
+    if (roundCids) {
+      const cidKeys = Object.keys(roundCids);
+      rows.push(`Round ${curRound}: ${cidKeys.length} CIDs`);
+    }
   } else {
     const id = n.idx, d = devData[id];
     rows = [`State: ${devState[id]}`, `Hardware: Raspberry Pi`];
@@ -770,6 +878,8 @@ function renderAll(state) {
   document.getElementById('sF1').textContent      = g?fmt4(g.f1_macro):'—';
   document.getElementById('sAUC').textContent     = g?fmt4(g.auc_macro):'—';
   document.getElementById('sBlocks').textContent  = state.blockchain?.chain_length??'—';
+  document.getElementById('sPins').textContent    = state.ipfs?.total_pins??'—';
+  document.getElementById('sPinsSub').textContent = state.ipfs?.enabled ? 'Pinata' : 'off-chain';
   document.getElementById('sClients').textContent = rnd.training?.devices?.length??'—';
 
   // Round dots
@@ -863,6 +973,45 @@ function renderAll(state) {
     }).join('')+'</div>';
   }
 
+  // IPFS panel
+  const ipfs = state.ipfs || {};
+  const ipfsStatusEl = document.getElementById('ipfsStatus');
+  const ipfsPinEl    = document.getElementById('ipfsPinCount');
+  const ipfsEl       = document.getElementById('ipfsContent');
+  if (ipfs.enabled) {
+    ipfsStatusEl.className = 'ipfs-status active';
+    ipfsStatusEl.textContent = '● Active';
+    ipfsPinEl.textContent = `${ipfs.total_pins || 0} pins`;
+    const roundKeys = Object.keys(ipfs.rounds || {}).sort((a,b) => Number(b) - Number(a));
+    if (!roundKeys.length) {
+      ipfsEl.innerHTML = '<div class="empty">Waiting for first round…</div>';
+    } else {
+      let html = '<div class="ipfs-pins">';
+      const display = roundKeys.slice(0, 8);
+      for (const rk of display) {
+        const cids = ipfs.rounds[rk];
+        html += `<div class="ipfs-round"><div class="ipfs-round-hdr">Round ${rk}</div>`;
+        for (const [key, cid] of Object.entries(cids || {})) {
+          const short = cid ? cid.slice(0, 18) + '…' + cid.slice(-6) : '—';
+          const link  = cid ? `https://gateway.pinata.cloud/ipfs/${cid}` : '#';
+          const label = key.replace('_cid','').replace('_',' ');
+          html += `<div class="ipfs-cid-row"><span class="ipfs-cid-label">${label}</span>`;
+          html += `<span class="ipfs-cid"><a href="${link}" target="_blank" title="${cid}">${short}</a></span>`;
+          html += `<span class="ipfs-badge">CID</span></div>`;
+        }
+        html += '</div>';
+      }
+      if (roundKeys.length > 8) html += `<div style="padding:8px 0;font:9px var(--mono);color:var(--light);">+${roundKeys.length-8} earlier rounds</div>`;
+      html += '</div>';
+      ipfsEl.innerHTML = html;
+    }
+  } else {
+    ipfsStatusEl.className = 'ipfs-status disabled';
+    ipfsStatusEl.textContent = 'Disabled';
+    ipfsPinEl.textContent = '—';
+    ipfsEl.innerHTML = '<div class="empty">IPFS not configured — set IPFS_BACKEND in .env</div>';
+  }
+
   document.getElementById('lupd').textContent =
     new Date(state.last_updated||Date.now()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
@@ -872,10 +1021,10 @@ function renderAll(state) {
 
   // Update round slider
   const slider = document.getElementById('roundSlider');
-  const rounds = Object.keys(state.rounds||{}).map(Number).sort((a,b)=>a-b);
-  if (rounds.length > 0 && slider.disabled) {
-    slider.min = Math.min(...rounds);
-    slider.max = Math.max(...rounds);
+  const allRounds = Object.keys(state.rounds||{}).map(Number).sort((a,b)=>a-b);
+  if (allRounds.length > 0 && slider.disabled) {
+    slider.min = Math.min(...allRounds);
+    slider.max = Math.max(...allRounds);
     slider.value = slider.max;
     slider.disabled = false;
   }

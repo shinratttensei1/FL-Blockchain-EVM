@@ -192,6 +192,15 @@ def _build_dashboard_state() -> Dict[str, Any]:
 
     blockchain = _blockchain_state()
 
+    # IPFS summary — extract CIDs from global round records
+    ipfs_summary = {"enabled": False, "total_pins": 0, "rounds": {}}
+    for rnd_key in sorted(rounds.keys()):
+        g = rounds[rnd_key].get("global")
+        if g and g.get("ipfs_cids"):
+            ipfs_summary["enabled"] = True
+            ipfs_summary["rounds"][str(rnd_key)] = g["ipfs_cids"]
+            ipfs_summary["total_pins"] += len(g["ipfs_cids"])
+
     return {
         "status":       status,
         "latest_round": latest_round,
@@ -199,6 +208,7 @@ def _build_dashboard_state() -> Dict[str, Any]:
         "rounds":       {str(k): v for k, v in rounds.items()},
         "history":      history,
         "blockchain":   blockchain,
+        "ipfs":         ipfs_summary,
         "last_updated": datetime.now().isoformat(),
     }
 
@@ -234,10 +244,14 @@ def stream():
 @app.get("/", response_class=HTMLResponse)
 def root():
     """Serve the dashboard HTML."""
+    html_path = Path(__file__).parent / "fl_dashboard.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text())
+    # Fallback to topology-only view
     html_path = Path(__file__).parent / "fl_topology.html"
     if html_path.exists():
         return HTMLResponse(content=html_path.read_text())
-    return HTMLResponse("<h1>Dashboard HTML not found at fl_blockchain_evm/fl_topology.html</h1>")
+    return HTMLResponse("<h1>Dashboard HTML not found</h1>")
 
 
 if __name__ == "__main__":

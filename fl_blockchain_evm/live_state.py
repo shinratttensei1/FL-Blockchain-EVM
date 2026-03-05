@@ -22,6 +22,9 @@ _state: Dict[str, Any] = {
     "chain_valid": None,
     "client_data": [],
     "votes": [],
+    "ipfs_enabled": False,
+    "ipfs_cids": {},
+    "ipfs_pin_count": 0,
 }
 
 
@@ -90,6 +93,16 @@ def done(final_chain_length: int):
     with _lock:
         _state["status"] = "complete"
         _state["chain_length"] = final_chain_length
+
+
+def ipfs_pinned(round_num: int, cids: Dict[str, str]):
+    """Record IPFS CIDs for a completed round."""
+    with _lock:
+        _state["ipfs_enabled"] = True
+        _state["ipfs_cids"][round_num] = cids
+        _state["ipfs_pin_count"] = sum(
+            len(v) for v in _state["ipfs_cids"].values()
+        )
 
 
 def get_state() -> Dict[str, Any]:

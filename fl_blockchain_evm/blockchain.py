@@ -75,6 +75,18 @@ class EVMBlockchain:
         # Nonce tracked manually so fire-and-wait works without collisions
         self._nonce: Optional[int] = None
 
+        # IPFS off-chain storage (optional — degrades gracefully)
+        self._ipfs = None
+        self._round_cids: Dict[int, Dict[str, str]] = {}
+        try:
+            ipfs_backend = os.getenv("IPFS_BACKEND", "").strip()
+            if ipfs_backend:
+                from fl_blockchain_evm.ipfs_storage import IPFSStorage
+                self._ipfs = IPFSStorage(backend=ipfs_backend)
+                print(f"  [EVM] IPFS storage enabled ({ipfs_backend} backend)")
+        except Exception as e:
+            print(f"  [EVM] IPFS not available: {e}")
+
     # ─────────────────────────────────────────────────────────
     # Internal helpers
     # ─────────────────────────────────────────────────────────
@@ -167,7 +179,7 @@ class EVMBlockchain:
         all three round transactions together.
         """
         # ── LOCAL block: aggregated view of all clients this round ──
-        local_data = json.dumps({
+        local_payload = {
             "round": fl_round,
             "num_clients": len(clients),
             "clients": [
@@ -183,7 +195,19 @@ class EVMBlockchain:
             "loss_mean": loss_mean,
             "loss_std":  loss_std,
             "threshold": threshold,
-        })
+        }
+
+        # Pin detailed training data to IPFS (off-chain audit trail)
+        local_cid = None
+        if self._ipfs:
+            try:
+                local_cid = self._ipfs.pin_json(
+                    local_payload, f"round_{fl_round}_local")
+                local_payload["ipfs_cid"] = local_cid
+            except Exception as e:
+                print(f"  [IPFS] Warning: LOCAL pin failed: {e}")
+
+        local_data = json.dumps(local_payload)
 
         print(
             f"\n  [EVM] Firing LOCAL block (Round {fl_round}, {len(clients)} clients)...")
@@ -214,13 +238,25 @@ class EVMBlockchain:
         accepted = sum(1 for v in votes if v["vote"] == "ACCEPTED")
         rejected = len(votes) - accepted
 
-        vote_data = json.dumps({
+        vote_payload = {
             "round":    fl_round,
             "threshold": threshold,
             "accepted": accepted,
             "rejected": rejected,
             "votes":    votes,
-        })
+        }
+
+        # Pin vote data to IPFS
+        vote_cid = None
+        if self._ipfs:
+            try:
+                vote_cid = self._ipfs.pin_json(
+                    vote_payload, f"round_{fl_round}_votes")
+                vote_payload["ipfs_cid"] = vote_cid
+            except Exception as e:
+                print(f"  [IPFS] Warning: VOTE pin failed: {e}")
+
+        vote_data = json.dumps(vote_payload)
 
         print(f"  [EVM] Firing VOTE block (Round {fl_round}: "
               f"{accepted} accepted / {rejected} rejected)...")
@@ -232,6 +268,14 @@ class EVMBlockchain:
             ),
             fire_and_wait=True,
         )
+
+        # Track IPFS CIDs for this round
+        if self._ipfs and (local_cid or vote_cid):
+            self._round_cids.setdefault(fl_round, {})
+            if local_cid:
+                self._round_cids[fl_round]["local_cid"] = local_cid
+            if vote_cid:
+                self._round_cids[fl_round]["vote_cid"] = vote_cid
 
         return votes  # returned so server_app can print the table
 
@@ -245,14 +289,40 @@ class EVMBlockchain:
         loss: float,
         num_clients: int,
     ):
-        """Write GLOBAL block, then wait for all three round txs together."""
-        data = json.dumps({
+        """Write GLOBAL block, then wait for all three round txs together.
+
+        If IPFS is enabled, pins the global model weights (~250 KB
+        compressed) and evaluation metrics off-chain.  The CIDs are
+        embedded in the on-chain payload so the contentHash covers them.
+        """
+        global_payload = {
             "accuracy":    accuracy,
             "f1_macro":    f1_macro,
             "auc_macro":   auc_macro,
             "loss":        loss,
             "num_clients": num_clients,
-        })
+        }
+
+        # Pin global model weights + metrics to IPFS
+        model_cid = None
+        metrics_cid = None
+        if self._ipfs:
+            try:
+                if model_state_dict is not None:
+                    model_cid = self._ipfs.pin_model(
+                        model_state_dict,
+                        f"round_{fl_round}_global_model",
+                    )
+                    global_payload["ipfs_model_cid"] = model_cid
+                metrics_cid = self._ipfs.pin_json(
+                    global_payload,
+                    f"round_{fl_round}_global_metrics",
+                )
+                global_payload["ipfs_metrics_cid"] = metrics_cid
+            except Exception as e:
+                print(f"  [IPFS] Warning: GLOBAL pin failed: {e}")
+
+        data = json.dumps(global_payload)
 
         print(f"\n  [EVM] Firing GLOBAL block (Round {fl_round})...")
         self._send_transaction(
@@ -263,6 +333,14 @@ class EVMBlockchain:
             ),
             fire_and_wait=True,
         )
+
+        # Track IPFS CIDs
+        if self._ipfs and (model_cid or metrics_cid):
+            cids = self._round_cids.setdefault(fl_round, {})
+            if model_cid:
+                cids["model_cid"] = model_cid
+            if metrics_cid:
+                cids["metrics_cid"] = metrics_cid
 
         # Now wait for LOCAL + VOTE + GLOBAL together
         print(
@@ -295,7 +373,34 @@ class EVMBlockchain:
         print(f"  Contract:        {self.contract_address}")
         print(f"  Total blocks:    {length}")
         print(f"  Chain integrity: {'✓ VALID' if is_valid else '✗ BROKEN'}")
+        if self._ipfs:
+            stats = self._ipfs.get_session_stats()
+            print(f"  IPFS backend:    {stats['backend']}")
+            print(f"  IPFS pins:       {stats['total_pins']}")
+            print(
+                f"  IPFS uploaded:   {stats['total_bytes_uploaded']:,} bytes")
         print(f"  {'═'*60}\n")
+
+    # ─────────────────────────────────────────────────────────
+    # IPFS helpers
+    # ─────────────────────────────────────────────────────────
+
+    @property
+    def ipfs_enabled(self) -> bool:
+        """True if IPFS storage backend is configured and available."""
+        return self._ipfs is not None
+
+    def get_round_cids(self, fl_round: int) -> Optional[Dict[str, str]]:
+        """Return IPFS CIDs pinned for a given FL round, or None."""
+        return self._round_cids.get(fl_round)
+
+    def get_all_cids(self) -> Dict[int, Dict[str, str]]:
+        """Return all IPFS CIDs indexed by round number."""
+        return dict(self._round_cids)
+
+    def get_ipfs_storage(self):
+        """Return the underlying IPFSStorage instance (or None)."""
+        return self._ipfs
 
 
 FLBlockchain = EVMBlockchain

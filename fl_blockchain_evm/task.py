@@ -88,7 +88,7 @@ class _SEResBlock(nn.Module):
 
 
 class Net(nn.Module):
-    """4-stage SE-ResNet: (B,12,1000) → 5 logits. ~200K params."""
+    """4-stage SE-ResNet: (B,12,1000) → 5 logits. ~920K params."""
 
     def __init__(self, num_classes=NUM_CLASSES):
         super().__init__()
