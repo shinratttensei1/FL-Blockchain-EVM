@@ -14,6 +14,7 @@ Outputs (saved to metrics/):
   7. sota_comparison_tables.md         — all tables in Markdown format
 """
 
+from fl_blockchain_evm.core.constants import SC_NAMES
 from math import pi
 from pathlib import Path
 import matplotlib.patches as mpatches
@@ -24,14 +25,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 
+
 # ──────────────────────────────────────────────────────────────
 #  Configuration
 # ──────────────────────────────────────────────────────────────
 METRICS_DIR = Path("metrics")
 METRICS_DIR.mkdir(exist_ok=True)
 RESULTS_PATH = "outputs/results.json"
-
-SC_NAMES = ["NORM", "MI", "STTC", "CD", "HYP"]
 COLORS = {
     "ours":   "#2ecc71",
     "cl":     "#3498db",

@@ -16,7 +16,7 @@ import os
 import json
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
 from fastapi import FastAPI
@@ -25,6 +25,7 @@ from fastapi.responses import StreamingResponse, HTMLResponse
 
 from dotenv import load_dotenv
 from web3 import Web3
+from fl_blockchain_evm.utils import load_results as _load_results
 
 load_dotenv()
 
@@ -53,7 +54,7 @@ def _init_blockchain():
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         if not w3.is_connected():
             return None, None
-        abi_path = Path("FLBlockchain_abi.json")
+        abi_path = Path("contracts/FLBlockchain_abi.json")
         if not abi_path.exists():
             return None, None
         with open(abi_path) as f:
@@ -71,27 +72,6 @@ _w3, _contract = _init_blockchain()
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
-
-
-def _read_results() -> List[Dict[str, Any]]:
-    if not RESULTS_FILE.exists():
-        return []
-    records = []
-    with open(RESULTS_FILE) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                # client_eval lines may be lists
-                if isinstance(obj, list):
-                    records.extend(obj)
-                else:
-                    records.append(obj)
-            except json.JSONDecodeError:
-                pass
-    return records
 
 
 def _blockchain_state() -> Dict[str, Any]:
@@ -128,7 +108,7 @@ def _blockchain_state() -> Dict[str, Any]:
 
 def _build_dashboard_state() -> Dict[str, Any]:
     import numpy as np
-    records = _read_results()
+    records = _load_results(str(RESULTS_FILE))
 
     rounds: Dict[int, Dict] = {}
     for r in records:

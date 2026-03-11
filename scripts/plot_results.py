@@ -10,6 +10,7 @@ Generates publication-ready figures for 71-SCP-code classification:
   7. Summary statistics + markdown report
 """
 
+from fl_blockchain_evm.core.constants import SC_NAMES
 import seaborn as sns
 import matplotlib.pyplot as plt
 import json
@@ -22,7 +23,7 @@ from collections import defaultdict
 import matplotlib
 matplotlib.use('Agg')
 
-SC_NAMES = ['NORM', 'MI', 'STTC', 'CD', 'HYP']
+
 METRICS_DIR = Path("metrics")
 METRICS_DIR.mkdir(exist_ok=True)
 RESULTS_PATH = "outputs/results.json"

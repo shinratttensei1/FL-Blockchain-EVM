@@ -56,7 +56,7 @@ class EVMBlockchain:
         print(f"  [EVM] Balance: {balance_eth:.4f} ETH")
 
         # Load contract
-        with open('FLBlockchain_abi.json', 'r') as f:
+        with open('contracts/FLBlockchain_abi.json', 'r') as f:
             contract_abi = json.load(f)
 
         self.contract = self.w3.eth.contract(
@@ -81,7 +81,7 @@ class EVMBlockchain:
         try:
             ipfs_backend = os.getenv("IPFS_BACKEND", "").strip()
             if ipfs_backend:
-                from fl_blockchain_evm.ipfs_storage import IPFSStorage
+                from fl_blockchain_evm.infra.ipfs_storage import IPFSStorage
                 self._ipfs = IPFSStorage(backend=ipfs_backend)
                 print(f"  [EVM] IPFS storage enabled ({ipfs_backend} backend)")
         except Exception as e:

@@ -35,83 +35,11 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-# ── Import YOUR model + data + test from task.py ──────────────────
+# ── Import model + data + test from task.py ──────────────────
 try:
-    from task import Net, NUM_CLASSES, SC_NAMES, load_data, test as evaluate_model
-    TASK_OK = True
+    from fl_blockchain_evm.task import Net, NUM_CLASSES, SC_NAMES, load_data, test as evaluate_model
 except ImportError:
-    try:
-        from fl_blockchain_evm.task import Net, NUM_CLASSES, SC_NAMES, load_data, test as evaluate_model
-        TASK_OK = True
-    except ImportError:
-        TASK_OK = False
-        print("[WARN] Cannot import task.py — will use inline model definition")
-
-if not TASK_OK:
-    NUM_CLASSES = 5
-    SC_NAMES = ["NORM", "MI", "STTC", "CD", "HYP"]
-
-    class _SEResBlock(nn.Module):
-        def __init__(self, ch, ks=5):
-            super().__init__()
-            pad = ks // 2
-            self.conv1 = nn.Conv1d(ch, ch, ks, padding=pad, bias=False)
-            self.bn1 = nn.BatchNorm1d(ch)
-            self.conv2 = nn.Conv1d(ch, ch, ks, padding=pad, bias=False)
-            self.bn2 = nn.BatchNorm1d(ch)
-            mid = max(ch // 4, 4)
-            self.se = nn.Sequential(
-                nn.AdaptiveAvgPool1d(1), nn.Flatten(),
-                nn.Linear(ch, mid), nn.ReLU(inplace=True),
-                nn.Linear(mid, ch), nn.Sigmoid(),
-            )
-
-        def forward(self, x):
-            out = torch.relu(self.bn1(self.conv1(x)))
-            out = self.bn2(self.conv2(out))
-            out = out * self.se(out).unsqueeze(-1)
-            return torch.relu(out + x)
-
-    class Net(nn.Module):
-        def __init__(self, num_classes=5):
-            super().__init__()
-            self.input_bn = nn.BatchNorm1d(12)
-            self.conv1 = nn.Conv1d(12, 32, 15, padding=7, bias=False)
-            self.bn1 = nn.BatchNorm1d(32)
-            self.pool1 = nn.MaxPool1d(4)
-            self.res1a = _SEResBlock(32, 7)
-            self.res1b = _SEResBlock(32, 7)
-            self.conv2 = nn.Conv1d(32, 64, 7, padding=3, bias=False)
-            self.bn2 = nn.BatchNorm1d(64)
-            self.pool2 = nn.MaxPool1d(4)
-            self.res2a = _SEResBlock(64, 5)
-            self.res2b = _SEResBlock(64, 5)
-            self.conv3 = nn.Conv1d(64, 128, 5, padding=2, bias=False)
-            self.bn3 = nn.BatchNorm1d(128)
-            self.pool3 = nn.MaxPool1d(2)
-            self.res3a = _SEResBlock(128, 3)
-            self.res3b = _SEResBlock(128, 3)
-            self.conv4 = nn.Conv1d(128, 256, 3, padding=1, bias=False)
-            self.bn4 = nn.BatchNorm1d(256)
-            self.pool4 = nn.MaxPool1d(2)
-            self.res4 = _SEResBlock(256, 3)
-            self.gap = nn.AdaptiveAvgPool1d(1)
-            self.drop = nn.Dropout(0.3)
-            self.fc = nn.Linear(256, num_classes)
-
-        def forward(self, x):
-            x = self.input_bn(x)
-            x = self.res1b(self.res1a(self.pool1(
-                torch.relu(self.bn1(self.conv1(x))))))
-            x = self.res2b(self.res2a(self.pool2(
-                torch.relu(self.bn2(self.conv2(x))))))
-            x = self.res3b(self.res3a(self.pool3(
-                torch.relu(self.bn3(self.conv3(x))))))
-            x = self.res4(self.pool4(torch.relu(self.bn4(self.conv4(x)))))
-            return self.fc(self.drop(self.gap(x).squeeze(-1)))
-
-    load_data = None
-    evaluate_model = None
+    from task import Net, NUM_CLASSES, SC_NAMES, load_data, test as evaluate_model
 
 try:
     from web3 import Web3
@@ -517,7 +445,7 @@ def bench_blockchain(skip=False):
         _row("Balance", f"{w3.from_wei(balance, 'ether'):.6f} ETH")
 
         abi_path = None
-        for f in ["FLBlockchain_abi.json", "abi.json", "contract_abi.json"]:
+        for f in ["contracts/FLBlockchain_abi.json", "FLBlockchain_abi.json", "abi.json", "contract_abi.json"]:
             if os.path.exists(f):
                 abi_path = f
                 break
@@ -598,9 +526,9 @@ def bench_ipfs(model, skip=False):
         return {"skipped": True}
     try:
         try:
-            from ipfs_storage import IPFSStorage
+            from fl_blockchain_evm.infra.ipfs_storage import IPFSStorage
         except ImportError:
-            from fl_blockchain_evm.ipfs_storage import IPFSStorage
+            from ipfs_storage import IPFSStorage
         ipfs = IPFSStorage()
     except Exception as e:
         print(f"  [SKIPPED] Cannot init IPFS: {e}")

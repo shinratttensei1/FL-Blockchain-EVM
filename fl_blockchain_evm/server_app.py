@@ -2,13 +2,14 @@ import torch
 import numpy as np
 import json
 import os
-from typing import List, Dict
+from typing import Dict
 from datetime import datetime
 import matplotlib.pyplot as plt
-from fl_blockchain_evm.priority_strategy import MedicalFedAvg
-from fl_blockchain_evm.task import Net, test as test_fn, load_data, NUM_CLASSES, SC_NAMES
-from fl_blockchain_evm.blockchain import EVMBlockchain as FLBlockchain
-from fl_blockchain_evm import live_state
+from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
+from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES
+from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
+from fl_blockchain_evm.dashboard import state as live_state
+from fl_blockchain_evm.utils import get_device, print_table
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord, RecordDict
 from flwr.serverapp import Grid, ServerApp
 import seaborn as sns
@@ -32,14 +33,6 @@ _round_state: Dict = {
 }
 
 
-def _dev():
-    if torch.cuda.is_available():
-        return torch.device("cuda:0")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
-
-
 def _plot_cm(cm, rnd, acc, f1):
     if isinstance(cm, list):
         cm = np.array(cm)
@@ -57,7 +50,7 @@ def global_evaluate(server_round, arrays, config=None):
     live_state.evaluating(server_round)
 
     model = Net()
-    dev = _dev()
+    dev = get_device()
     model.load_state_dict(arrays.to_torch_state_dict())
     model.to(dev)
 
@@ -139,22 +132,6 @@ def global_evaluate(server_round, arrays, config=None):
 _rnd = {"train": 0, "eval": 0}
 
 
-def _print_table(header, rows, cols):
-    widths = [max(len(str(r[i])) for r in [header] + rows) + 2
-              for i in range(len(cols))]
-    sep = "+" + "+".join("-" * w for w in widths) + "+"
-
-    def _row(r):
-        return "|" + "|".join(str(r[i]).center(w)
-                              for i, w in enumerate(widths)) + "|"
-    print(sep)
-    print(_row(header))
-    print(sep)
-    for r in rows:
-        print(_row(r))
-    print(sep)
-
-
 def train_metrics_aggregation(metrics_list, weighting_key):
     _rnd["train"] += 1
     rnd = _rnd["train"]
@@ -177,7 +154,7 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     _round_state["train_results"] = data
 
     print(f"\n{C}  ROUND {rnd} TRAINING: {len(data)} devices{R}")
-    _print_table(
+    print_table(
         ["Device", "Loss", "Samples", "Time(s)", "Cls"],
         [[d["client_id"], f"{d['train_loss']:.4f}", d["num_examples"],
           f"{d['training_time']:.1f}", d["active_classes"]] for d in data],
@@ -207,7 +184,7 @@ def train_metrics_aggregation(metrics_list, weighting_key):
         threshold=threshold,
     )
 
-    _print_table(
+    print_table(
         ["Device", "Loss", "Verdict"],
         [[v["client_id"], f"{v['loss']:.4f}", v["vote"]] for v in votes],
         ["Device", "Loss", "Verdict"],
@@ -258,7 +235,7 @@ def weighted_average(metrics_list, weighting_key):
         })
 
     print(f"\n{G}  ROUND {rnd} EVALUATION: {len(data)} devices{R}")
-    _print_table(
+    print_table(
         ["Device", "Loss", "Acc", "F1", "AUC", "N"],
         [[d["client_id"], f"{d['eval_loss']:.4f}", f"{d['eval_acc']:.4f}",
           f"{d['eval_f1']:.4f}", f"{d['eval_auc']:.4f}", int(d["num-examples"])]
@@ -309,7 +286,7 @@ def main(grid: Grid, context: Context):
     ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
     print(f"\n{C}{'═'*60}")
     print(f"  5 Superclasses: {', '.join(SC_NAMES)}")
-    print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {_dev()}")
+    print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
     print(f"  IPFS:       {ipfs_status}")
     print(f"  Dashboard:  open dashboard.html in your browser")

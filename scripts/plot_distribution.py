@@ -5,6 +5,9 @@ Generates TWO plots:
   2. Top-20 SCP code distribution (grouped bar — per device)
 """
 
+from fl_blockchain_evm.core.constants import (
+    SC_NAMES, DIAG_NORM, DIAG_MI, DIAG_STTC, DIAG_CD, DIAG_HYP,
+)
 import matplotlib.pyplot as plt
 import os
 import ast
@@ -15,20 +18,9 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 
+
 NUM_CLIENTS = 10
 DATA_DIR = "data/ptb-xl"
-
-SC_NAMES = ['NORM', 'MI', 'STTC', 'CD', 'HYP']
-
-# Same label taxonomy as task.py
-DIAG_NORM = ['NORM']
-DIAG_MI = ['IMI', 'ASMI', 'ILMI', 'AMI', 'ALMI', 'INJAS', 'LMI',
-           'INJAL', 'IPLMI', 'IPMI', 'INJIN', 'INJLA', 'PMI', 'INJIL']
-DIAG_STTC = ['NDT', 'NST_', 'DIG', 'LNGQT', 'ISC_', 'ISCAL', 'ISCIN',
-             'ISCIL', 'ISCAS', 'ISCLA', 'ANEUR', 'EL', 'ISCAN']
-DIAG_CD = ['LAFB', 'IRBBB', '1AVB', 'IVCD', 'CRBBB', 'CLBBB', 'LPFB',
-           'WPW', 'ILBBB', '3AVB', '2AVB']
-DIAG_HYP = ['LVH', 'LAO/LAE', 'RVH', 'RAO/RAE', 'SEHYP']
 
 _all_diag = DIAG_NORM + DIAG_MI + DIAG_STTC + DIAG_CD + DIAG_HYP
 
