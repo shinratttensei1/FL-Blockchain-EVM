@@ -22,7 +22,32 @@ from typing import Dict, List, Optional
 from web3 import Web3
 from dotenv import load_dotenv
 
-load_dotenv()
+# Try to load .env from multiple possible locations
+_env_loaded = False
+_current_dir = os.getcwd()
+
+# Get the directory of this script
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(os.path.dirname(_script_dir))  # Go up two levels to project root
+
+# Try loading from project root
+_env_path = os.path.join(_project_root, '.env')
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+    _env_loaded = True
+
+# Also try current directory and parent directories
+if not _env_loaded:
+    for _env_path in ['.env', '../.env', '../../.env']:
+        if os.path.exists(_env_path):
+            load_dotenv(_env_path)
+            _env_loaded = True
+            break
+
+# If no .env file found, try loading from environment variables directly
+if not _env_loaded:
+    # This is normal for production deployments where env vars are set externally
+    pass
 
 
 class EVMBlockchain:
@@ -34,8 +59,17 @@ class EVMBlockchain:
         self.private_key = os.getenv("PRIVATE_KEY")
         self.contract_address = os.getenv("CONTRACT_ADDRESS")
 
-        if not all([self.rpc_url, self.private_key, self.contract_address]):
-            raise ValueError("Missing env variables. Check .env file.")
+        missing_vars = []
+        if not self.rpc_url:
+            missing_vars.append("BASE_SEPOLIA_RPC_URL")
+        if not self.private_key:
+            missing_vars.append("PRIVATE_KEY")
+        if not self.contract_address:
+            missing_vars.append("CONTRACT_ADDRESS")
+
+        if missing_vars:
+            raise ValueError(f"Missing environment variables: {', '.join(missing_vars)}. "
+                           f"Make sure .env file exists in the project root with these variables set.")
 
         # Connect to Base Sepolia
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
