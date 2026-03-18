@@ -50,6 +50,8 @@ default = "local-simulation"
 # Local simulation federation with 10 virtual SuperNodes
 [tool.flwr.federations.local-simulation]
 options.num-supernodes = 10
+options.backend.client_resources.num_cpus = 1
+options.backend.client_resources.num_gpus = 0
 
 
 # Remote federation example for use with SuperLink
