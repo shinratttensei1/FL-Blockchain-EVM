@@ -14,10 +14,7 @@ from fl_blockchain_evm.core.constants import NUM_CLASSES, SC_NAMES
 from fl_blockchain_evm.core.model import FocalLoss
 from fl_blockchain_evm.core.data import _augment
 
-try:
-    from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-except ImportError:
-    f1_score = precision_score = recall_score = roc_auc_score = None
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
 
 def _class_weights(loader):
