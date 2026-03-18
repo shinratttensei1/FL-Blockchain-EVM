@@ -57,7 +57,7 @@ def _init_blockchain():
         abi_path = Path("contracts/FLBlockchain_abi.json")
         if not abi_path.exists():
             return None, None
-        with open(abi_path) as f:
+        with open(abi_path, encoding="utf-8") as f:
             abi = json.load(f)
         contract = w3.eth.contract(
             address=Web3.to_checksum_address(contract_addr), abi=abi
@@ -200,6 +200,17 @@ def _build_dashboard_state() -> Dict[str, Any]:
 @app.get("/api/state")
 def get_state():
     return _build_dashboard_state()
+
+
+@app.get("/api/blockchain")
+def get_blockchain(limit: int = 6):
+    """Get blockchain data."""
+    blockchain_state = _blockchain_state()
+    # Limit the number of blocks returned
+    if blockchain_state.get("recent_blocks"):
+        blockchain_state["recent_blocks"] = blockchain_state["recent_blocks"][-limit:]
+    blockchain_state["blocks"] = blockchain_state.pop("recent_blocks", [])
+    return blockchain_state
 
 
 @app.get("/api/stream")

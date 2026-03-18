@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run Flower simulation directly."""
 
+import os
 import flwr as fl
 from fl_blockchain_evm.server_app import app as server_app
 from fl_blockchain_evm.client_app import app as client_app
@@ -9,6 +10,9 @@ from fl_blockchain_evm.client_app import app as client_app
 def main():
     """Run the simulation."""
     print("Starting Flower simulation...")
+
+    # Force CUDA usage for NVIDIA GPU
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU
 
     # Run simulation with ClientApp API
     try:
@@ -19,7 +23,7 @@ def main():
             backend_config={
                 "client_resources": {
                     "num_cpus": 1,
-                    "num_gpus": 0
+                    "num_gpus": 1  # Use 1 GPU per client
                 }
             },
         )

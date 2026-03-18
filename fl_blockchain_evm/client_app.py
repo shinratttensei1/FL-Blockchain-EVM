@@ -11,8 +11,11 @@ app = ClientApp()
 @app.train()
 def train(msg: Message, context: Context):
     model = Net()
-    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
+    # Load state dict and ensure it's on CPU first
+    state_dict = msg.content["arrays"].to_torch_state_dict()
+    model.load_state_dict(state_dict)
     device = get_device()
+    model.to(device)
 
     pid = context.node_config["partition-id"]
     trainloader, _ = load_data(
@@ -43,8 +46,11 @@ def train(msg: Message, context: Context):
 @app.evaluate()
 def evaluate(msg: Message, context: Context):
     model = Net()
-    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
+    # Load state dict and ensure it's on CPU first
+    state_dict = msg.content["arrays"].to_torch_state_dict()
+    model.load_state_dict(state_dict)
     device = get_device()
+    model.to(device)
 
     pid = context.node_config["partition-id"]
     _, valloader = load_data(
