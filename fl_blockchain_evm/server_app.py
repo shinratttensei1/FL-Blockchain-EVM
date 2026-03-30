@@ -266,9 +266,9 @@ app = ServerApp()
 
 @app.main()
 def main(grid: Grid, context: Context):
-    lr = context.run_config["lr"]
-    num_rounds = context.run_config["num-server-rounds"]
-    frac = context.run_config["fraction-train"]
+    lr = context.run_config.get("lr", 0.002)
+    num_rounds = int(context.run_config.get("num-server-rounds", 10))
+    frac = float(context.run_config.get("fraction-train", 1.0))
 
     if os.path.exists("outputs/results.json"):
         os.remove("outputs/results.json")

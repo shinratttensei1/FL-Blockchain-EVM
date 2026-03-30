@@ -5,11 +5,13 @@ Common helpers used across the server/client apps, dashboard, and scripts.
 
 import json
 import os
+from functools import lru_cache
 from typing import List, Dict, Any, Optional
 
 import torch
 
 
+@lru_cache(maxsize=1)
 def get_device(force: Optional[str] = None) -> torch.device:
     """Select the best available compute device.
 
@@ -27,7 +29,6 @@ def get_device(force: Optional[str] = None) -> torch.device:
             print(f"CUDA device name: {torch.cuda.get_device_name()}")
             # Check CUDA version info
             try:
-                import torch.version
                 print(f"PyTorch CUDA version: {torch.version.cuda}")
             except:
                 print("Could not get PyTorch CUDA version")

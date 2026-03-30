@@ -21,7 +21,7 @@ def train(msg: Message, context: Context):
     trainloader, _ = load_data(
         pid, context.node_config["num-partitions"], beta=1.0)
 
-    m = train_fn(model, trainloader, epochs=context.run_config["local-epochs"],
+    m = train_fn(model, trainloader, epochs=int(context.run_config.get("local-epochs", 5)),
                  lr=msg.content["config"]["lr"], device=device)
 
     y = trainloader.dataset.tensors[1]

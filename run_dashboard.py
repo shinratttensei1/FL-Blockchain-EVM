@@ -7,7 +7,7 @@ import sys
 def main():
     """Run the dashboard server."""
     print("Starting FL Blockchain Dashboard...")
-    print("Dashboard will be available at: http://localhost:8000")
+    print("Dashboard will be available at: http://localhost:8080")
     print("Press Ctrl+C to stop")
 
     try:
@@ -18,7 +18,7 @@ def main():
         uvicorn.run(
             app,
             host="0.0.0.0",
-            port=8000,
+            port=8080,
             reload=False
         )
     except ImportError as e:
