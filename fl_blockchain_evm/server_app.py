@@ -6,7 +6,7 @@ from typing import Dict
 from datetime import datetime
 import matplotlib.pyplot as plt
 from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
-from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES
+from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NUM_CLASSES
 from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
 from fl_blockchain_evm.dashboard import state as live_state
 from fl_blockchain_evm.utils import get_device, print_table
@@ -19,8 +19,8 @@ matplotlib.use('Agg')
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
-SC_LABELS = ['NORM', 'MI (Infarction)', 'STTC (ST/T)',
-             'CD (Conduction)', 'HYP (Hypertrophy)']
+SC_LABELS = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS',
+             'SITTING', 'STANDING', 'LAYING']
 
 _blockchain = FLBlockchain()
 
@@ -58,12 +58,12 @@ def global_evaluate(server_round, arrays, config=None):
     m = test_fn(model, testloader, dev)
 
     print(f"\n{Y}{'═'*60}{R}")
-    print(f"{Y}  [ROUND {server_round}] GLOBAL — 5 Superclasses{R}")
+    print(f"{Y}  [ROUND {server_round}] GLOBAL — 6 Activities{R}")
     print(f"{Y}{'═'*60}{R}")
     for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
               "precision_macro", "recall_macro", "specificity_macro", "auc_macro"]:
         print(f"   {k:20s}: {m[k]:.4f}")
-    print(f"   {'── Per-Superclass ──':20s}")
+    print(f"   {'── Per-Activity ──':20s}")
     for i, sc in enumerate(SC_NAMES):
         print(f"     {sc:5s}  P={m['per_class_precision'][i]:.3f}  "
               f"R={m['per_class_recall'][i]:.3f}  "
@@ -109,7 +109,7 @@ def global_evaluate(server_round, arrays, config=None):
         "type":                "global",
         "timestamp":           datetime.now().isoformat(),
         "superclass_names":    SC_NAMES,
-        "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * 5),
+        "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * NUM_CLASSES),
         "blockchain_blocks":   summary["total_blocks"],
     })
     # Include IPFS CIDs if available
@@ -285,7 +285,7 @@ def main(grid: Grid, context: Context):
 
     ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
     print(f"\n{C}{'═'*60}")
-    print(f"  5 Superclasses: {', '.join(SC_NAMES)}")
+    print(f"  6 Activities: {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
     print(f"  IPFS:       {ipfs_status}")

@@ -7,179 +7,204 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root {
-  --white:#ffffff; --off:#f7f7f5; --rule:#e2e2de;
-  --light:#c8c8c4; --mid:#8a8a84; --dark:#3a3a36; --black:#111110;
-  --green:#1a7a3c; --green-bg:#edf7f1;
-  --red:#b91c1c;   --red-bg:#fef2f2;
-  --amber:#b45309; --amber-bg:#fffbeb;
-  --blue:#1d4ed8;  --blue-bg:#eff6ff;
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'DM Sans',sans-serif;
+  --paper:  #F2F1ED;
+  --white:  #FAFAF8;
+  --ink:    #1A1917;
+  --rule:   #C8C5BC;
+  --mid:    #787570;
+  --dim:    #ADAAA3;
+  --navy:   #1C3461;
+  --forest: #1A5235;
+  --crimson:#7B1A1A;
+  --gold:   #7B5B1A;
+  --violet: #4A2E78;
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--off);color:var(--black);font-family:var(--sans);min-height:100vh;}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--mono); font-size: 11px; min-height: 100vh; }
 
-/* Header */
-header{background:var(--white);border-bottom:2px solid var(--black);padding:0 32px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
-.logo{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:16px;}
-.logo-div{width:1px;height:18px;background:var(--rule);}
-.logo-sub{font-family:var(--sans);font-weight:400;font-size:12px;color:var(--mid);}
-.hdr-right{display:flex;align-items:center;gap:24px;font-family:var(--mono);font-size:11px;color:var(--mid);}
-.status-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid currentColor;border-radius:2px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;}
-.status-pill.idle{color:var(--light);}
-.status-pill.training{color:var(--amber);}
-.status-pill.complete{color:var(--green);}
-.sdot{width:5px;height:5px;border-radius:50%;background:currentColor;}
-.status-pill.training .sdot{animation:blink .9s step-end infinite;}
-@keyframes blink{50%{opacity:0;}}
-.cdot{width:6px;height:6px;border-radius:50%;background:var(--light);}
-.cdot.on{background:var(--green);}
-.cdot.off{background:var(--red);animation:blink .9s step-end infinite;}
-
-/* Topology panel */
-.topo-panel{background:var(--white);border-bottom:1px solid var(--rule);}
-.topo-header{padding:14px 32px 0;display:flex;align-items:center;justify-content:space-between;}
-.panel-title{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}
-.legend{display:flex;gap:20px;flex-wrap:wrap;}
-.leg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--mid);}
-.leg-swatch{width:10px;height:10px;border-radius:2px;border:1.5px solid;}
-.leg-swatch.idle{background:#f7f7f5;border-color:#c8c8c4;}
-.leg-swatch.training{background:#fffbeb;border-color:#b45309;}
-.leg-swatch.accepted{background:#edf7f1;border-color:#1a7a3c;}
-.leg-swatch.rejected{background:#fef2f2;border-color:#b91c1c;}
-.leg-swatch.aggregating{background:#eff6ff;border-color:#1d4ed8;}
-
-.topo-wrap{position:relative;height:500px;}
-#topoCanvas{display:block;width:100%;height:100%;}
-
-/* Tooltip */
-#tip{position:absolute;background:var(--white);border:1px solid var(--black);box-shadow:3px 3px 0 var(--black);border-radius:2px;padding:10px 14px;font-family:var(--mono);font-size:10px;line-height:1.9;pointer-events:none;display:none;z-index:100;min-width:170px;}
-#tip b{display:block;font-size:11px;margin-bottom:2px;border-bottom:1px solid var(--rule);padding-bottom:4px;margin-bottom:6px;}
-
-/* Phase banner */
-#phaseBanner{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:var(--white);border:1px solid var(--black);padding:5px 18px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;opacity:0;transition:opacity .4s;}
-#phaseBanner.show{opacity:1;}
-
-/* Metrics */
-.metrics{max-width:1560px;margin:0 auto;padding:24px 32px 48px;}
-.mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--rule);}
-.card{background:var(--white);}
-.ch{padding:14px 20px 12px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;justify-content:space-between;}
-.ct{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}
-.cm{font-family:var(--mono);font-size:9px;color:var(--light);}
-.cb{padding:18px 20px;}
-
-.sstrip{grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:0;background:var(--rule);}
-.sstrip .card{border-right:1px solid var(--rule);}
-.sstrip .card:last-child{border-right:none;}
-.stat{padding:20px 20px 18px;}
-.slbl{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;}
-.sval{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--black);line-height:1;letter-spacing:-.02em;}
-.sval.g{color:var(--green);}
-.sval.a{color:var(--amber);}
-.ssub{font-size:10px;color:var(--light);margin-top:5px;}
-
-.rcard{grid-column:1/-1;}
-.rdots{display:flex;gap:4px;flex-wrap:wrap;padding:2px 0;}
-.rdot{width:32px;height:32px;border:1px solid var(--rule);background:var(--off);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--light);border-radius:3px;transition:all .2s;cursor:pointer;}
-.rdot:hover{background:var(--white);border-color:var(--mid);transform:scale(1.05);}
-.rdot.done{background:var(--black);border-color:var(--black);color:var(--white);}
-.rdot.done:hover{background:var(--dark);}
-.rdot.active{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);animation:blink .9s step-end infinite;}
-
-.clcard{grid-column:1/3;}
-table{width:100%;border-collapse:collapse;}
-thead tr{border-bottom:1px solid var(--black);}
-th{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);padding:8px 12px;text-align:left;font-weight:500;white-space:nowrap;}
-td{padding:9px 12px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:11px;color:var(--dark);}
-tr:last-child td{border-bottom:none;}
-tbody tr:hover td{background:var(--off);}
-.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;border:1px solid transparent;}
-.badge.accepted{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
-.badge.rejected{background:var(--red-bg);color:var(--red);border-color:#fecaca;}
-
-.vcard{grid-column:3;}
-.vrow{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--rule);}
-.vrow:last-child{border-bottom:none;}
-.vid{font-family:var(--mono);font-size:10px;color:var(--dark);min-width:50px;}
-.ltrack{flex:1;height:3px;background:var(--rule);border-radius:2px;overflow:hidden;}
-.lfill{height:100%;border-radius:2px;transition:width .5s;}
-.lfill.ok{background:var(--green);}
-.lfill.bad{background:var(--red);}
-
-.chcard{grid-column:1/3;}
-.cwrap{height:160px;}
-canvas#mchart{display:block;width:100%;height:100%;}
-
-.pccard{grid-column:3;}
-.pcrow{display:grid;grid-template-columns:38px 1fr 40px;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--rule);}
-.pcrow:last-child{border-bottom:none;}
-.pcname{font-family:var(--mono);font-size:9px;color:var(--mid);}
-.pctrack{height:4px;background:var(--rule);border-radius:2px;overflow:hidden;}
-.pcfill{height:100%;background:var(--black);border-radius:2px;transition:width .6s;}
-.pcval{font-family:var(--mono);font-size:10px;color:var(--dark);text-align:right;}
-
-.cmcard{grid-column:1/3;}
-.cmover{overflow-x:auto;}
-.cmtbl{border-collapse:collapse;margin:0 auto;}
-.cmtbl th,.cmtbl td{width:56px;height:42px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:11px;border:1px solid var(--rule);}
-.cmtbl thead th,.cmtbl .cmlbl{background:var(--off);color:var(--mid);font-size:9px;font-weight:500;letter-spacing:.06em;}
-
-.bccard{grid-column:3;}
-.bcvalid{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
-.bcvalid.valid{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
-.bcvalid.invalid{background:var(--red-bg);color:var(--red);border-color:#fecaca;}
-.bcvalid.unknown{background:var(--off);color:var(--light);border-color:var(--rule);}
-.blist{display:flex;flex-direction:column;}
-.bitem{display:grid;grid-template-columns:26px 58px 1fr auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule);}
-.bitem:last-child{border-bottom:none;}
-.bitem:hover{background:var(--off);margin:0 -20px;padding:10px 20px;}
-.bnum{font-family:var(--mono);font-size:10px;color:var(--light);text-align:right;}
-.btag{display:inline-flex;padding:2px 6px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;}
-.btag.LOCAL{background:var(--blue-bg);color:var(--blue);border-color:#bfdbfe;}
-.btag.VOTE{background:var(--amber-bg);color:var(--amber);border-color:#fde68a;}
-.btag.GLOBAL{background:var(--green-bg);color:var(--green);border-color:#bbf7d0;}
-.btag.GENESIS{background:var(--off);color:var(--mid);border-color:var(--rule);}
-.binfo{font-family:var(--mono);font-size:9px;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.btime{font-family:var(--mono);font-size:9px;color:var(--light);white-space:nowrap;}
-
-/* IPFS card */
-.ipfscard{grid-column:1/3;}
-.ipfs-status{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid transparent;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
-.ipfs-status.active{background:#f0e6ff;color:#7c3aed;border-color:#ddd6fe;}
-.ipfs-status.disabled{background:var(--off);color:var(--light);border-color:var(--rule);}
-.ipfs-pins{display:flex;flex-direction:column;gap:0;}
-.ipfs-round{border-bottom:1px solid var(--rule);padding:10px 0;}
-.ipfs-round:last-child{border-bottom:none;}
-.ipfs-round-hdr{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--dark);margin-bottom:6px;}
-.ipfs-cid-row{display:grid;grid-template-columns:100px 1fr auto;align-items:center;gap:8px;padding:3px 0;}
-.ipfs-cid-label{font-family:var(--mono);font-size:9px;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
-.ipfs-cid{font-family:var(--mono);font-size:9px;color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ipfs-cid a{color:#7c3aed;text-decoration:none;}
-.ipfs-cid a:hover{text-decoration:underline;}
-.ipfs-badge{display:inline-flex;padding:1px 5px;border:1px solid #ddd6fe;border-radius:2px;font-family:var(--mono);font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;background:#f0e6ff;color:#7c3aed;white-space:nowrap;}
-
-.empty{padding:36px 20px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--light);letter-spacing:.06em;}
-::-webkit-scrollbar{width:4px;height:4px;}
-::-webkit-scrollbar-thumb{background:var(--rule);}
-
-@media(max-width:960px){
-  .mgrid{grid-template-columns:1fr 1fr;}
-  .sstrip{grid-template-columns:repeat(3,1fr);}
-  .clcard,.chcard,.cmcard{grid-column:1/-1;}
-  .vcard,.pccard,.bccard,.ipfscard{grid-column:1/-1;}
+/* ── Header ── */
+header {
+  background: var(--white);
+  border-bottom: 1.5px solid var(--ink);
+  padding: 0 24px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
 }
-@media(max-width:600px){
-  .mgrid{grid-template-columns:1fr;}
-  .topo-wrap{height:360px;}
-  header,.topo-header,.metrics{padding-left:16px;padding-right:16px;}
+.logo { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+.logo-div { width: 1px; height: 14px; background: var(--rule); }
+.logo-sub { font-family: var(--serif); font-weight: 400; font-style: italic; font-size: 11px; color: var(--mid); text-transform: none; letter-spacing: 0; }
+.hdr-right { display: flex; align-items: center; gap: 18px; font-family: var(--mono); font-size: 10px; color: var(--mid); }
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 6px; border: 1px solid currentColor; font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.status-pill.idle     { color: var(--dim); }
+.status-pill.training { color: var(--gold); }
+.status-pill.complete { color: var(--forest); }
+.status-pill.viewing  { color: var(--navy); }
+.sdot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.status-pill.training .sdot { animation: blink .9s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.cdot { width: 5px; height: 5px; border-radius: 50%; background: var(--dim); }
+.cdot.on  { background: var(--forest); }
+.cdot.off { background: var(--crimson); animation: blink .9s step-end infinite; }
+
+/* ── Topology panel ── */
+.topo-panel { background: var(--white); border-bottom: 1px solid var(--rule); }
+.topo-header { padding: 7px 24px 6px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--rule); }
+.panel-title { font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 8px; color: var(--mid); }
+.leg-swatch { width: 8px; height: 8px; border: 1px solid; }
+.leg-swatch.idle        { background: #F2F1ED; border-color: #C8C5BC; }
+.leg-swatch.training    { background: #FAF4E2; border-color: #7B5B1A; }
+.leg-swatch.accepted    { background: #E8F2EA; border-color: #1A5235; }
+.leg-swatch.rejected    { background: #F2E8E8; border-color: #7B1A1A; }
+.leg-swatch.aggregating { background: #E8EBF5; border-color: #1C3461; }
+.topo-wrap { position: relative; height: 360px; }
+#topoCanvas { display: block; width: 100%; height: 100%; }
+
+/* ── Tooltip ── */
+#tip { position: absolute; background: var(--white); border: 1px solid var(--ink); padding: 8px 12px; font-family: var(--mono); font-size: 9px; line-height: 1.8; pointer-events: none; display: none; z-index: 100; min-width: 150px; }
+#tip b { display: block; font-size: 10px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; margin-bottom: 4px; }
+
+/* ── Phase banner ── */
+#phaseBanner { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: var(--white); border: 1px solid var(--ink); padding: 3px 14px; font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; opacity: 0; transition: opacity .4s; }
+#phaseBanner.show { opacity: 1; }
+
+/* ── Metrics grid ── */
+.metrics { max-width: 1560px; margin: 0 auto; padding: 12px 24px 28px; }
+.mgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.card { background: var(--white); }
+.ch { padding: 7px 14px 6px; border-bottom: 1px solid var(--rule); display: flex; align-items: baseline; justify-content: space-between; }
+.ct { font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); }
+.cm { font-family: var(--mono); font-size: 8px; color: var(--dim); }
+.cb { padding: 10px 14px; }
+
+/* ── Stat strip ── */
+.sstrip { grid-column: 1/-1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; background: var(--rule); }
+.sstrip .card { border-right: 1px solid var(--rule); }
+.sstrip .card:last-child { border-right: none; }
+.stat { padding: 11px 14px 10px; }
+.slbl { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); margin-bottom: 5px; }
+.sval { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; letter-spacing: -.02em; }
+.sval.g { color: var(--forest); }
+.sval.a { color: var(--gold); }
+.ssub { font-family: var(--mono); font-size: 8px; color: var(--dim); margin-top: 3px; }
+
+/* ── Round dots ── */
+.rcard { grid-column: 1/-1; }
+.rdots { display: flex; gap: 3px; flex-wrap: wrap; padding: 1px 0; }
+.rdot { width: 24px; height: 24px; border: 1px solid var(--rule); background: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; color: var(--dim); transition: background .1s; cursor: pointer; }
+.rdot:hover { background: var(--white); border-color: var(--mid); }
+.rdot.done { background: var(--ink); border-color: var(--ink); color: var(--white); }
+.rdot.done:hover { background: #3A3632; }
+.rdot.active { background: #FAF4E2; border-color: var(--gold); color: var(--gold); animation: blink .9s step-end infinite; }
+
+/* ── Tables ── */
+.clcard { grid-column: 1/3; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--ink); }
+th { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); padding: 6px 10px; text-align: left; font-weight: 500; white-space: nowrap; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 10px; color: var(--ink); }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--paper); }
+.badge { display: inline-flex; align-items: center; padding: 1px 5px; border: 1px solid currentColor; font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.badge.accepted { color: var(--forest); }
+.badge.rejected { color: var(--crimson); }
+
+/* ── Loss votes ── */
+.vcard { grid-column: 3; }
+.vrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.vrow:last-child { border-bottom: none; }
+.vid { font-family: var(--mono); font-size: 9px; color: var(--mid); min-width: 44px; }
+.ltrack { flex: 1; height: 2px; background: var(--rule); overflow: hidden; }
+.lfill { height: 100%; transition: width .5s; }
+.lfill.ok  { background: var(--forest); }
+.lfill.bad { background: var(--crimson); }
+
+/* ── Metrics chart ── */
+.chcard { grid-column: 1/3; }
+.cwrap { height: 130px; }
+canvas#mchart { display: block; width: 100%; height: 100%; }
+
+/* ── Per-activity F1 ── */
+.pccard { grid-column: 3; }
+.pcrow { display: grid; grid-template-columns: 64px 1fr 42px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.pcrow:last-child { border-bottom: none; }
+.pcname { font-family: var(--mono); font-size: 8px; color: var(--mid); }
+.pctrack { height: 2px; background: var(--rule); overflow: hidden; }
+.pcfill { height: 100%; background: var(--navy); transition: width .6s; }
+.pcval { font-family: var(--mono); font-size: 9px; color: var(--ink); text-align: right; }
+
+/* ── Confusion matrix ── */
+.cmcard { grid-column: 1/3; }
+.cmover { overflow-x: auto; }
+.cmtbl { border-collapse: collapse; width: 100%; }
+.cmtbl th, .cmtbl td { width: 50px; height: 34px; text-align: center; vertical-align: middle; font-family: var(--mono); font-size: 10px; border: 1px solid var(--rule); }
+.cmtbl thead th, .cmtbl .cmlbl { background: var(--paper); color: var(--mid); font-size: 8px; font-weight: 500; letter-spacing: .06em; }
+
+/* ── Blockchain ── */
+.bccard { grid-column: 3; }
+.bcvalid { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 1px solid currentColor; font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.bcvalid.valid   { color: var(--forest); }
+.bcvalid.invalid { color: var(--crimson); }
+.bcvalid.unknown { color: var(--dim); }
+.blist { display: flex; flex-direction: column; }
+.bitem { display: grid; grid-template-columns: 22px 50px 1fr auto; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.bitem:last-child { border-bottom: none; }
+.bitem:hover { background: var(--paper); margin: 0 -14px; padding: 7px 14px; }
+.bnum  { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; }
+.btag  { display: inline-flex; padding: 1px 5px; border: 1px solid currentColor; font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.btag.LOCAL   { color: var(--navy); }
+.btag.VOTE    { color: var(--gold); }
+.btag.GLOBAL  { color: var(--forest); }
+.btag.GENESIS { color: var(--dim); }
+.binfo { font-family: var(--mono); font-size: 9px; color: var(--mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btime { font-family: var(--mono); font-size: 9px; color: var(--dim); white-space: nowrap; }
+
+/* ── IPFS ── */
+.ipfscard { grid-column: 1/3; }
+.ipfs-status { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 1px solid currentColor; font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.ipfs-status.active   { color: var(--violet); }
+.ipfs-status.disabled { color: var(--dim); }
+.ipfs-pins { display: flex; flex-direction: column; }
+.ipfs-round { border-bottom: 1px solid var(--rule); padding: 7px 0; }
+.ipfs-round:last-child { border-bottom: none; }
+.ipfs-round-hdr { font-family: var(--mono); font-size: 9px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+.ipfs-cid-row { display: grid; grid-template-columns: 88px 1fr auto; align-items: center; gap: 8px; padding: 2px 0; }
+.ipfs-cid-label { font-family: var(--mono); font-size: 8px; color: var(--mid); text-transform: uppercase; letter-spacing: .06em; }
+.ipfs-cid { font-family: var(--mono); font-size: 9px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ipfs-cid a { color: var(--violet); text-decoration: none; }
+.ipfs-cid a:hover { text-decoration: underline; }
+.ipfs-badge { display: inline-flex; padding: 0 4px; border: 1px solid currentColor; font-family: var(--mono); font-size: 7px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--violet); white-space: nowrap; }
+
+.empty { padding: 20px 14px; text-align: center; font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: .06em; }
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-thumb { background: var(--rule); }
+
+@media (max-width: 960px) {
+  .mgrid { grid-template-columns: 1fr 1fr; }
+  .sstrip { grid-template-columns: repeat(3, 1fr); }
+  .clcard, .chcard, .cmcard { grid-column: 1/-1; }
+  .vcard, .pccard, .bccard, .ipfscard { grid-column: 1/-1; }
+}
+@media (max-width: 600px) {
+  .mgrid { grid-template-columns: 1fr; }
+  .topo-wrap { height: 280px; }
+  header, .topo-header, .metrics { padding-left: 12px; padding-right: 12px; }
 }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">FL·CHAIN <div class="logo-div"></div><span class="logo-sub">Federated ECG — Network Topology</span></div>
+  <div class="logo">FL·CHAIN <div class="logo-div"></div><span class="logo-sub">Federated HAR — Network Topology</span></div>
   <div class="hdr-right">
     <div style="display:flex;align-items:center;gap:5px;"><div class="cdot" id="cdot"></div><span id="clbl">Connecting</span></div>
     <span id="lupd" style="color:var(--light)">—</span>
@@ -219,7 +244,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
         </div>
       </div>
       <div class="card stat"><div class="slbl">Accuracy</div><div class="sval g" id="sAcc">—</div><div class="ssub">global model</div></div>
-      <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">5-superclass</div></div>
+      <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">6-activity</div></div>
       <div class="card stat"><div class="slbl">AUC Macro</div><div class="sval" id="sAUC">—</div><div class="ssub">ROC area</div></div>
       <div class="card stat"><div class="slbl">Chain Blocks</div><div class="sval a" id="sBlocks">—</div><div class="ssub">Base Sepolia</div></div>
       <div class="card stat"><div class="slbl">IPFS Pins</div><div class="sval" id="sPins" style="color:#7c3aed;">—</div><div class="ssub" id="sPinsSub">off-chain</div></div>
@@ -249,7 +274,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
       <div class="cb"><div class="cwrap"><canvas id="mchart"></canvas></div></div>
     </div>
     <div class="card pccard">
-      <div class="ch"><span class="ct">Per-Superclass F1</span><span class="cm" id="pclbl">—</span></div>
+      <div class="ch"><span class="ct">Per-Activity F1</span><span class="cm" id="pclbl">—</span></div>
       <div class="cb" id="pcrows"><div class="empty">No data yet</div></div>
     </div>
     <div class="card cmcard">
@@ -284,7 +309,7 @@ canvas#mchart{display:block;width:100%;height:100%;}
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────
 const API = '';
-const SC  = ['NORM','MI','STTC','CD','HYP'];
+const SC  = ['WALKING','WALK_UP','WALK_DN','SITTING','STANDING','LAYING'];
 const N   = 10; // devices
 
 // ─────────────────────────────────────────────────────────────
@@ -311,16 +336,16 @@ let prevKey   = '';                      // phase change detector
 
 // State → visual config
 const STATES = {
-  idle:         { fill:'#f7f7f5', stroke:'#c8c8c4', glow:null,        label:'Idle'         },
-  training:     { fill:'#fffbeb', stroke:'#b45309', glow:'#b45309',   label:'Training'     },
-  accepted:     { fill:'#edf7f1', stroke:'#1a7a3c', glow:'#1a7a3c',   label:'Accepted'     },
-  rejected:     { fill:'#fef2f2', stroke:'#b91c1c', glow:'#b91c1c',   label:'Rejected'     },
-  aggregating:  { fill:'#eff6ff', stroke:'#1d4ed8', glow:'#1d4ed8',   label:'Aggregating'  },
-  broadcasting: { fill:'#eff6ff', stroke:'#1d4ed8', glow:'#1d4ed8',   label:'Broadcasting' },
-  writing:      { fill:'#fffbeb', stroke:'#b45309', glow:'#b45309',   label:'Writing'      },
-  confirmed:    { fill:'#edf7f1', stroke:'#1a7a3c', glow:'#1a7a3c',   label:'Confirmed'    },
-  pinning:      { fill:'#f0e6ff', stroke:'#7c3aed', glow:'#7c3aed',   label:'Pinning'      },
-  pinned:       { fill:'#f0e6ff', stroke:'#7c3aed', glow:null,        label:'Pinned'       },
+  idle:         { fill:'#F2F1ED', stroke:'#C8C5BC', glow:null,      label:'Idle'         },
+  training:     { fill:'#FAF4E2', stroke:'#7B5B1A', glow:'#7B5B1A', label:'Training'     },
+  accepted:     { fill:'#E8F2EA', stroke:'#1A5235', glow:'#1A5235', label:'Accepted'     },
+  rejected:     { fill:'#F2E8E8', stroke:'#7B1A1A', glow:'#7B1A1A', label:'Rejected'     },
+  aggregating:  { fill:'#E8EBF5', stroke:'#1C3461', glow:'#1C3461', label:'Aggregating'  },
+  broadcasting: { fill:'#E8EBF5', stroke:'#1C3461', glow:'#1C3461', label:'Broadcasting' },
+  writing:      { fill:'#FAF4E2', stroke:'#7B5B1A', glow:'#7B5B1A', label:'Writing'      },
+  confirmed:    { fill:'#E8F2EA', stroke:'#1A5235', glow:null,      label:'Confirmed'    },
+  pinning:      { fill:'#EDE8F5', stroke:'#4A2E78', glow:'#4A2E78', label:'Pinning'      },
+  pinned:       { fill:'#EDE8F5', stroke:'#4A2E78', glow:null,      label:'Pinned'       },
 };
 const sc = s => STATES[s] || STATES.idle;
 
@@ -330,7 +355,7 @@ function layout() {
   const cx = W * 0.42, cy = H * 0.5;
   const ring = Math.min(W * 0.34, H * 0.40);
 
-  nodes.server     = { x: cx,          y: cy,           r: 30, kind:'server',     label:'FL Server',    sub:'MedicalFedAvg' };
+  nodes.server     = { x: cx,          y: cy,           r: 30, kind:'server',     label:'FL Server',    sub:'FedAvg' };
   nodes.blockchain = { x: cx + W*0.26, y: cy - H*0.22,  r: 24, kind:'blockchain', label:'Blockchain',   sub:'Base Sepolia'  };
   nodes.ipfs       = { x: cx + W*0.26, y: cy + H*0.22,  r: 22, kind:'ipfs',       label:'IPFS',         sub:'Off-chain'     };
 
@@ -408,8 +433,8 @@ function drawNode(key) {
       // LED dot
       ctx.beginPath();
       ctx.arc(s * 0.7, ry + s * 0.27, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = state === 'aggregating' ? '#1d4ed8'
-                    : state === 'idle'        ? '#c8c8c4'
+      ctx.fillStyle = state === 'aggregating' ? '#1C3461'
+                    : state === 'idle'        ? '#C8C5BC'
                     : col.stroke;
       ctx.fill();
       ctx.fillStyle = col.stroke;
@@ -459,8 +484,8 @@ function drawNode(key) {
   // Label below node
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'top';
-  ctx.font         = '500 11px DM Sans';
-  ctx.fillStyle    = '#111110';
+  ctx.font         = '500 10px IBM Plex Mono';
+  ctx.fillStyle    = '#1A1917';
   ctx.fillText(n.label, n.x, n.y + n.r + 6);
 
   // Sub-label (state or metric)
@@ -482,8 +507,8 @@ function drawNode(key) {
     sub = bcCount > 0 ? `${bcCount} blocks` : n.sub;
   }
 
-  ctx.font      = '10px IBM Plex Mono';
-  ctx.fillStyle = state === 'idle' ? '#8a8a84' : col.stroke;
+  ctx.font      = '9px IBM Plex Mono';
+  ctx.fillStyle = state === 'idle' ? '#ADAAA3' : col.stroke;
   ctx.fillText(sub, n.x, n.y + n.r + 20);
 }
 
@@ -525,8 +550,8 @@ function drawEdges() {
     const active = st !== 'idle';
 
     ctx.beginPath();
-    ctx.strokeStyle = active ? col.stroke : '#e2e2de';
-    ctx.lineWidth   = active ? 1.5 : 1;
+    ctx.strokeStyle = active ? col.stroke : '#C8C5BC';
+    ctx.lineWidth   = active ? 1.5 : 0.8;
     ctx.globalAlpha = active ? 0.45 : 1;
     ctx.setLineDash(active ? [] : [5, 5]);
     ctx.moveTo(d.x, d.y);
@@ -539,8 +564,8 @@ function drawEdges() {
   // Server → blockchain edge
   const bcActive = bcState !== 'idle';
   ctx.beginPath();
-  ctx.strokeStyle = bcActive ? '#b45309' : '#e2e2de';
-  ctx.lineWidth   = bcActive ? 2 : 1;
+  ctx.strokeStyle = bcActive ? '#7B5B1A' : '#C8C5BC';
+  ctx.lineWidth   = bcActive ? 1.5 : 0.8;
   ctx.setLineDash(bcActive ? [] : [5, 5]);
   ctx.moveTo(sv.x, sv.y);
   ctx.lineTo(bc.x, bc.y);
@@ -552,8 +577,8 @@ function drawEdges() {
   if (ipfsN) {
     const ipfsActive = ipfsState !== 'idle';
     ctx.beginPath();
-    ctx.strokeStyle = ipfsActive ? '#7c3aed' : '#e2e2de';
-    ctx.lineWidth   = ipfsActive ? 2 : 1;
+    ctx.strokeStyle = ipfsActive ? '#4A2E78' : '#C8C5BC';
+    ctx.lineWidth   = ipfsActive ? 1.5 : 0.8;
     ctx.setLineDash(ipfsActive ? [] : [5, 5]);
     ctx.moveTo(sv.x, sv.y);
     ctx.lineTo(ipfsN.x, ipfsN.y);
@@ -564,7 +589,7 @@ function drawEdges() {
     const imx = (sv.x + ipfsN.x) / 2, imy = (sv.y + ipfsN.y) / 2 + 12;
     if (ipfsActive) {
       ctx.font      = '9px IBM Plex Mono';
-      ctx.fillStyle = '#7c3aed';
+      ctx.fillStyle = '#4A2E78';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('off-chain', imx, imy);
@@ -575,7 +600,7 @@ function drawEdges() {
   const mx = (sv.x + bc.x) / 2, my = (sv.y + bc.y) / 2 - 10;
   if (bcActive) {
     ctx.font      = '9px IBM Plex Mono';
-    ctx.fillStyle = '#b45309';
+    ctx.fillStyle = '#7B5B1A';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('audit trail', mx, my);
@@ -587,8 +612,8 @@ function drawRoundBadge() {
   if (!curRound) return;
   const sv = nodes.server;
   if (!sv) return;
-  ctx.font         = '700 12px IBM Plex Mono';
-  ctx.fillStyle    = '#111110';
+  ctx.font         = '600 10px IBM Plex Mono';
+  ctx.fillStyle    = '#1A1917';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'bottom';
   ctx.fillText(`Round ${curRound}`, sv.x, sv.y - sv.r - 8);
@@ -734,7 +759,7 @@ function triggerPackets(state) {
     showBanner(`Round ${rnd} — Devices receiving global model`);
     for (let i = 0; i < N; i++) {
       const delay = i * 70;
-      setTimeout(() => spawn('server', `d${i}`, '#1d4ed8', 'weights↓', 0.022 + Math.random()*0.008), delay);
+      setTimeout(() => spawn('server', `d${i}`, '#1C3461', 'weights↓', 0.022 + Math.random()*0.008), delay);
     }
   }
 
@@ -744,7 +769,7 @@ function triggerPackets(state) {
       showBanner(`Round ${rnd} — Uploading local updates`);
       tr.devices.forEach((d, i) => {
         if (d.client_id >= 0 && d.client_id < N) {
-          setTimeout(() => spawn(`d${d.client_id}`, 'server', '#b45309', 'update↑', 0.017 + Math.random()*0.007), i * 80);
+          setTimeout(() => spawn(`d${d.client_id}`, 'server', '#7B5B1A', 'update↑', 0.017 + Math.random()*0.007), i * 80);
         }
       });
     }, 1600);
@@ -753,15 +778,15 @@ function triggerPackets(state) {
   // Round done — server writes to blockchain, broadcasts new model
   if (phase === 'done') {
     showBanner(`Round ${rnd} — Writing to blockchain & IPFS`);
-    setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'LOCAL', 0.014), 200);
-    setTimeout(() => spawn('server', 'ipfs',       '#7c3aed', 'model', 0.016), 400);
-    setTimeout(() => spawn('server', 'blockchain', '#b45309', 'VOTE',  0.013), 900);
-    setTimeout(() => spawn('server', 'ipfs',       '#7c3aed', 'metrics', 0.015), 1100);
-    setTimeout(() => spawn('server', 'blockchain', '#1a7a3c', 'GLOBAL',0.012), 1600);
+    setTimeout(() => spawn('server', 'blockchain', '#1A5235', 'LOCAL', 0.014), 200);
+    setTimeout(() => spawn('server', 'ipfs',       '#4A2E78', 'model', 0.016), 400);
+    setTimeout(() => spawn('server', 'blockchain', '#7B5B1A', 'VOTE',  0.013), 900);
+    setTimeout(() => spawn('server', 'ipfs',       '#4A2E78', 'metrics', 0.015), 1100);
+    setTimeout(() => spawn('server', 'blockchain', '#1A5235', 'GLOBAL',0.012), 1600);
     setTimeout(() => {
       showBanner(`Round ${rnd} complete — Broadcasting new model`);
       for (let i = 0; i < N; i++) {
-        setTimeout(() => spawn('server', `d${i}`, '#1d4ed8', 'model↓', 0.02 + Math.random()*0.008), i * 65);
+        setTimeout(() => spawn('server', `d${i}`, '#1C3461', 'model↓', 0.02 + Math.random()*0.008), i * 65);
       }
     }, 2400);
   }
@@ -829,30 +854,30 @@ function drawMChart() {
   const W = mc.offsetWidth, H = mc.offsetHeight;
   mctx.clearRect(0,0,W,H);
   const p={t:8,r:16,b:28,l:32}, iW=W-p.l-p.r, iH=H-p.t-p.b;
-  mctx.strokeStyle='#e2e2de'; mctx.lineWidth=1;
+  mctx.strokeStyle='#C8C5BC'; mctx.lineWidth=0.8;
   mctx.beginPath(); mctx.moveTo(p.l,p.t); mctx.lineTo(p.l,p.t+iH); mctx.lineTo(p.l+iW,p.t+iH); mctx.stroke();
   if (!hist.length) {
-    mctx.fillStyle='#c8c8c4'; mctx.font='10px IBM Plex Mono';
+    mctx.fillStyle='#ADAAA3'; mctx.font='9px IBM Plex Mono';
     mctx.textAlign='center'; mctx.fillText('No data yet', W/2, H/2+4); return;
   }
   for (let i=0;i<=4;i++) {
     const y=p.t+iH*(i/4);
-    mctx.strokeStyle='#e2e2de'; mctx.lineWidth=1;
+    mctx.strokeStyle='#C8C5BC'; mctx.lineWidth=0.5;
     mctx.beginPath(); mctx.moveTo(p.l,y); mctx.lineTo(p.l+iW,y); mctx.stroke();
-    mctx.fillStyle='#8a8a84'; mctx.font='9px IBM Plex Mono';
+    mctx.fillStyle='#787570'; mctx.font='8px IBM Plex Mono';
     mctx.textAlign='right'; mctx.textBaseline='middle';
-    mctx.fillText((1-i/4).toFixed(1), p.l-5, y);
+    mctx.fillText((1-i/4).toFixed(1), p.l-4, y);
   }
   const n=hist.length, xOf=i=>p.l+(n===1?iW/2:(i*iW)/(n-1)), yOf=v=>p.t+iH*(1-Math.max(0,Math.min(1,v)));
-  mctx.textAlign='center'; mctx.fillStyle='#8a8a84'; mctx.textBaseline='top';
-  hist.forEach((d,i)=>mctx.fillText('R'+d.round, xOf(i), H-14));
+  mctx.textAlign='center'; mctx.fillStyle='#787570'; mctx.textBaseline='top';
+  hist.forEach((d,i)=>mctx.fillText('R'+d.round, xOf(i), H-12));
   function line(key,color,dash=[]) {
-    mctx.beginPath(); mctx.strokeStyle=color; mctx.lineWidth=1.5; mctx.setLineDash(dash);
+    mctx.beginPath(); mctx.strokeStyle=color; mctx.lineWidth=1.2; mctx.setLineDash(dash);
     hist.forEach((d,i)=>{ const x=xOf(i),y=yOf(d[key]); i===0?mctx.moveTo(x,y):mctx.lineTo(x,y); });
     mctx.stroke(); mctx.setLineDash([]);
-    hist.forEach((d,i)=>{ mctx.beginPath(); mctx.arc(xOf(i),yOf(d[key]),2.5,0,Math.PI*2); mctx.fillStyle=color; mctx.fill(); });
+    hist.forEach((d,i)=>{ mctx.beginPath(); mctx.arc(xOf(i),yOf(d[key]),2,0,Math.PI*2); mctx.fillStyle=color; mctx.fill(); });
   }
-  line('accuracy','#111110'); line('f1_macro','#8a8a84',[4,3]); line('auc_macro','#c8c8c4',[2,3]);
+  line('accuracy','#1A1917'); line('f1_macro','#787570',[4,3]); line('auc_macro','#ADAAA3',[2,3]);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -891,9 +916,9 @@ function renderAll(state) {
     const el = document.createElement('div');
     const isDone = !!state.rounds[rr]?.global, isActive = rr===r&&state.status==='training';
     el.className = 'rdot '+(isDone?'done':isActive?'active':'');
-    el.textContent = rr; 
+    el.textContent = rr;
+    el.style.outline = rr === selectedRound ? '2px solid var(--amber)' : '';
     el.title = isDone?`Round ${rr} — Acc ${pct(state.rounds[rr].global.accuracy)} — Click to view`:`Round ${rr}`;
-    // Add click handler for completed rounds
     if (isDone) {
       el.style.cursor = 'pointer';
       el.addEventListener('click', () => {
@@ -902,6 +927,7 @@ function renderAll(state) {
         document.getElementById('liveBtn').style.background = 'var(--white)';
         document.getElementById('liveBtn').style.color = 'var(--mid)';
         renderRound(rr);
+        renderLive(state_cache);
       });
     }
     rdotsEl.appendChild(el);
@@ -1144,6 +1170,107 @@ function renderRound(roundNum) {
   }
 }
 
+// renderLive — updates panels that should always show live data
+// (topology, chart, blockchain, IPFS, status pill, header stats)
+// Called alongside renderRound() when viewing a historical round.
+function renderLive(state) {
+  const r   = state.latest_round || 0;
+  const rnd = state.rounds?.[String(r)] || {};
+  const g   = rnd.global;
+
+  // Status pill + header
+  const pill = document.getElementById('spill'), stxt = document.getElementById('stxt');
+  pill.className = 'status-pill viewing';
+  stxt.textContent = `Viewing Round ${selectedRound}`;
+  document.getElementById('lupd').textContent =
+    new Date(state.last_updated || Date.now()).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('sRoundSub').textContent = `of ${Object.keys(state.rounds||{}).length} rounds`;
+  document.getElementById('sBlocks').textContent = state.blockchain?.chain_length ?? '—';
+  document.getElementById('sPins').textContent    = state.ipfs?.total_pins ?? '—';
+  document.getElementById('sPinsSub').textContent = state.ipfs?.enabled ? 'Pinata' : 'off-chain';
+  document.getElementById('sClients').textContent = rnd.training?.devices?.length ?? '—';
+
+  // History chart always shows full run
+  hist = state.history || []; drawMChart();
+
+  // Blockchain section (live)
+  const bc = state.blockchain || {}, valEl = document.getElementById('bcvalid'), bEl = document.getElementById('bcblocks');
+  if (!bc.connected) {
+    valEl.className = 'bcvalid unknown'; valEl.textContent = 'Disconnected';
+    bEl.innerHTML = '<div class="empty">Cannot connect — check .env</div>';
+  } else {
+    valEl.className = bc.chain_valid === true ? 'bcvalid valid' : bc.chain_valid === false ? 'bcvalid invalid' : 'bcvalid unknown';
+    valEl.textContent = bc.chain_valid === true ? '✓ Valid' : bc.chain_valid === false ? '✗ Broken' : 'Checking';
+    if (!bc.recent_blocks?.length) { bEl.innerHTML = '<div class="empty">No blocks yet</div>'; }
+    else bEl.innerHTML = '<div class="blist">' + bc.recent_blocks.map(b => {
+      const t = b.block_type || '?', ts = b.timestamp ? new Date(b.timestamp*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
+      return `<div class="bitem"><span class="bnum">#${b.index}</span><span class="btag ${t}">${t}</span><span class="binfo">R${b.fl_round} · ${(b.content_hash||'').slice(0,14)}…</span><span class="btime">${ts}</span></div>`;
+    }).join('') + '</div>';
+  }
+
+  // IPFS (live)
+  const ipfs = state.ipfs || {};
+  const ipfsStatusEl = document.getElementById('ipfsStatus');
+  const ipfsPinEl    = document.getElementById('ipfsPinCount');
+  const ipfsEl       = document.getElementById('ipfsContent');
+  if (ipfs.enabled) {
+    ipfsStatusEl.className = 'ipfs-status active'; ipfsStatusEl.textContent = '● Active';
+    ipfsPinEl.textContent = `${ipfs.total_pins || 0} pins`;
+    const roundKeys = Object.keys(ipfs.rounds || {}).sort((a,b) => Number(b) - Number(a));
+    if (!roundKeys.length) { ipfsEl.innerHTML = '<div class="empty">Waiting for first round…</div>'; }
+    else {
+      let html = '<div class="ipfs-pins">';
+      for (const rk of roundKeys.slice(0, 8)) {
+        const cids = ipfs.rounds[rk];
+        html += `<div class="ipfs-round"><div class="ipfs-round-hdr">Round ${rk}</div>`;
+        for (const [key, cid] of Object.entries(cids || {})) {
+          const short = cid ? cid.slice(0,18) + '…' + cid.slice(-6) : '—';
+          const link  = cid ? `https://gateway.pinata.cloud/ipfs/${cid}` : '#';
+          const label = key.replace('_cid','').replace('_',' ');
+          html += `<div class="ipfs-cid-row"><span class="ipfs-cid-label">${label}</span><span class="ipfs-cid"><a href="${link}" target="_blank" title="${cid}">${short}</a></span><span class="ipfs-badge">CID</span></div>`;
+        }
+        html += '</div>';
+      }
+      if (roundKeys.length > 8) html += `<div style="padding:8px 0;font:9px var(--mono);color:var(--light);">+${roundKeys.length-8} earlier rounds</div>`;
+      html += '</div>'; ipfsEl.innerHTML = html;
+    }
+  } else {
+    ipfsStatusEl.className = 'ipfs-status disabled'; ipfsStatusEl.textContent = 'Disabled';
+    ipfsPinEl.textContent = '—';
+    ipfsEl.innerHTML = '<div class="empty">IPFS not configured — set IPFS_BACKEND in .env</div>';
+  }
+
+  // Topology + round dots (live)
+  updateTopo(state);
+  triggerPackets(state);
+
+  const rdotsEl = document.getElementById('rdots');
+  const rounds  = Object.keys(state.rounds || {}).map(Number).sort((a,b)=>a-b);
+  const done    = rounds.filter(rr => state.rounds[rr]?.global).length;
+  rdotsEl.innerHTML = '';
+  rounds.forEach(rr => {
+    const el = document.createElement('div');
+    const isDone = !!state.rounds[rr]?.global;
+    el.className = 'rdot ' + (isDone ? 'done' : rr === r && state.status === 'training' ? 'active' : '');
+    el.textContent = rr;
+    el.title = isDone ? `Round ${rr} — Acc ${pct(state.rounds[rr].global.accuracy)} — Click to view` : `Round ${rr}`;
+    el.style.outline = rr === selectedRound ? '2px solid var(--amber)' : '';
+    if (isDone) {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => {
+        selectedRound = rr;
+        document.getElementById('roundSlider').value = rr;
+        document.getElementById('liveBtn').style.background = 'var(--white)';
+        document.getElementById('liveBtn').style.color = 'var(--mid)';
+        renderRound(rr);
+        renderLive(state_cache);
+      });
+    }
+    rdotsEl.appendChild(el);
+  });
+  document.getElementById('rplbl').textContent = `${done} / ${rounds.length} complete`;
+}
+
 // Load all blockchain blocks
 async function loadBlockchainData() {
   try {
@@ -1189,17 +1316,19 @@ function connect() {
   dot.className='cdot'; lbl.textContent='Connecting';
   const es = new EventSource(`${API}/api/stream`);
   es.onopen    = () => { dot.className='cdot on'; lbl.textContent='Live'; };
-  es.onmessage = e => { 
-    try { 
-      const s = JSON.parse(e.data); 
+  es.onmessage = e => {
+    try {
+      const s = JSON.parse(e.data);
       if (!s.error) {
+        state_cache = s;
         if (selectedRound === null) {
           renderAll(s);
         } else {
-          state_cache = s;
+          renderRound(selectedRound);
+          renderLive(s);
         }
       }
-    } catch(_){} 
+    } catch(_){}
   };
   es.onerror   = () => { dot.className='cdot off'; lbl.textContent='Reconnecting'; es.close(); setTimeout(connect,4000); };
 }

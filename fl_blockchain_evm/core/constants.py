@@ -1,27 +1,24 @@
-"""Shared constants for the FL-Blockchain-EVM project.
+"""Shared constants for the FL-Blockchain-EVM project (UCI-HAR).
 
-Diagnostic superclass taxonomy, SCP code mapping, and class metadata
+Activity class names and metadata for Human Activity Recognition
 used across the model, data loading, training, and evaluation modules.
+
+Dataset: UCI Human Activity Recognition Using Smartphones
+(Anguita et al., 2013) — 6 activity classes, 30 subjects.
 """
 
-from typing import Dict, List
+from typing import List
 
-# ── Diagnostic superclass SCP codes (PTB-XL) ──────────────────
+# ── Activity class names (UCI-HAR) ────────────────────────────
 
-DIAG_NORM = ["NORM"]
-DIAG_MI = ["IMI", "ASMI", "ILMI", "AMI", "ALMI", "INJAS", "LMI",
-           "INJAL", "IPLMI", "IPMI", "INJIN", "INJLA", "PMI", "INJIL"]
-DIAG_STTC = ["NDT", "NST_", "DIG", "LNGQT", "ISC_", "ISCAL",
-             "ISCIN", "ISCIL", "ISCAS", "ISCLA", "ANEUR", "EL", "ISCAN"]
-DIAG_CD = ["LAFB", "IRBBB", "1AVB", "IVCD", "CRBBB",
-           "CLBBB", "LPFB", "WPW", "ILBBB", "3AVB", "2AVB"]
-DIAG_HYP = ["LVH", "LAO/LAE", "RVH", "RAO/RAE", "SEHYP"]
+ACTIVITY_NAMES: List[str] = [
+    "WALKING",
+    "WALKING_UPSTAIRS",
+    "WALKING_DOWNSTAIRS",
+    "SITTING",
+    "STANDING",
+    "LAYING",
+]
 
-SC_NAMES: List[str] = ["NORM", "MI", "STTC", "CD", "HYP"]
-NUM_CLASSES = 5
-
-# SCP code → superclass index mapping
-_SCP_TO_SC: Dict[str, int] = {}
-for _i, _codes in enumerate([DIAG_NORM, DIAG_MI, DIAG_STTC, DIAG_CD, DIAG_HYP]):
-    for _c in _codes:
-        _SCP_TO_SC[_c] = _i
+SC_NAMES: List[str] = ACTIVITY_NAMES  # alias used throughout codebase
+NUM_CLASSES = 6

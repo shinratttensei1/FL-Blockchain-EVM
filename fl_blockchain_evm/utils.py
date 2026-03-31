@@ -6,61 +6,32 @@ Common helpers used across the server/client apps, dashboard, and scripts.
 import json
 import os
 from functools import lru_cache
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 
 
 @lru_cache(maxsize=1)
 def get_device(force: Optional[str] = None) -> torch.device:
-    """Select the best available compute device.
-
-    Args:
-        force: If provided, use this device string directly.
-    """
+    """Select the best available compute device (CUDA → MPS → CPU)."""
     if force:
         return torch.device(force)
 
-    # Print CUDA information for debugging
     if torch.cuda.is_available():
-        print(f"CUDA is available. Device count: {torch.cuda.device_count()}")
-        print(f"Current CUDA device: {torch.cuda.current_device()}")
         try:
-            print(f"CUDA device name: {torch.cuda.get_device_name()}")
-            # Check CUDA version info
-            try:
-                print(f"PyTorch CUDA version: {torch.version.cuda}")
-            except:
-                print("Could not get PyTorch CUDA version")
-            print(f"cuDNN version: {torch.backends.cudnn.version()}")
-        except Exception as e:
-            print(f"Error getting CUDA info: {e}")
-
-        # Try CUDA with more comprehensive testing
-        try:
-            # Test CUDA by creating and operating on tensors
-            test_tensor = torch.randn(10, 10, device='cuda:0')
-            result = test_tensor @ test_tensor.t()  # Matrix multiplication
+            test = torch.randn(4, 4, device="cuda:0")
+            _ = test @ test.t()
             torch.cuda.empty_cache()
-            print("CUDA test passed - using GPU")
+            print("Using CUDA (GPU)")
             return torch.device("cuda:0")
-        except RuntimeError as e:
-            print(f"CUDA device available but not usable: {e}")
-            print("This usually means:")
-            print("1. PyTorch was compiled for different CUDA version")
-            print("2. GPU architecture not supported by this PyTorch build")
-            print("3. CUDA driver/runtime mismatch")
-            print("Falling back to CPU")
         except Exception as e:
-            print(f"CUDA test failed: {e}")
-            print("Falling back to CPU")
+            print(f"CUDA available but unusable ({e}), trying next option")
 
-    # Try MPS (Apple Silicon) - but user wants NVIDIA GPU
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        print("MPS available but user requested NVIDIA GPU - skipping")
-        # Don't use MPS since user wants NVIDIA
+        print("Using MPS (Apple Silicon)")
+        return torch.device("mps")
 
-    print("Using CPU - if you want GPU, fix CUDA compatibility")
+    print("Using CPU")
     return torch.device("cpu")
 
 

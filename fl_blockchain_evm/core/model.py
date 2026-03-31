@@ -1,10 +1,11 @@
-"""SE-ResNet model and loss functions for 12-lead ECG classification.
+"""SE-ResNet model and loss functions for UCI-HAR activity classification.
 
 Architecture: 4-stage SE-ResNet with squeeze-and-excitation blocks.
-Input: (B, 12, 1000) → 5 superclass logits. ~920K parameters.
+Input: (B, 9, 128) — 9 inertial sensor channels, 128 timesteps.
+Output: 6 activity class logits.
 
-Paper reference: "Application of FL Techniques for Arrhythmia Classification
-Using 12-Lead ECG Signals", Jimenez et al., arXiv:2208.10993v3, Jan 2024.
+Adapted from the original ECG SE-ResNet (Jimenez et al., arXiv:2208.10993v3)
+for human activity recognition using raw inertial sensor data.
 """
 
 import torch
@@ -57,38 +58,47 @@ class _SEResBlock(nn.Module):
 
 
 class Net(nn.Module):
-    """4-stage SE-ResNet: (B,12,1000) → 5 logits. ~920K params."""
+    """4-stage SE-ResNet: (B, 9, 128) → 6 activity logits.
+
+    Pooling schedule (stride-2 at each stage) keeps the temporal
+    dimension manageable for 128-sample windows:
+      128 → 64 → 32 → 16 → 8 → GAP → 256-d embedding → 6 logits
+    """
 
     def __init__(self, num_classes=NUM_CLASSES):
         super().__init__()
-        self.input_bn = nn.BatchNorm1d(12)
+        self.input_bn = nn.BatchNorm1d(9)
 
-        self.conv1 = nn.Conv1d(12, 32, 15, padding=7, bias=False)
-        self.bn1 = nn.BatchNorm1d(32)
-        self.pool1 = nn.MaxPool1d(4)
-        self.res1a = _SEResBlock(32, 7)
-        self.res1b = _SEResBlock(32, 7)
+        # Stage 1: (B,9,128) → pool → (B,32,64) → SE blocks
+        self.conv1 = nn.Conv1d(9, 32, 7, padding=3, bias=False)
+        self.bn1   = nn.BatchNorm1d(32)
+        self.pool1 = nn.MaxPool1d(2)
+        self.res1a = _SEResBlock(32, 5)
+        self.res1b = _SEResBlock(32, 5)
 
-        self.conv2 = nn.Conv1d(32, 64, 7, padding=3, bias=False)
-        self.bn2 = nn.BatchNorm1d(64)
-        self.pool2 = nn.MaxPool1d(4)
-        self.res2a = _SEResBlock(64, 5)
-        self.res2b = _SEResBlock(64, 5)
+        # Stage 2: (B,32,64) → pool → (B,64,32) → SE blocks
+        self.conv2 = nn.Conv1d(32, 64, 5, padding=2, bias=False)
+        self.bn2   = nn.BatchNorm1d(64)
+        self.pool2 = nn.MaxPool1d(2)
+        self.res2a = _SEResBlock(64, 3)
+        self.res2b = _SEResBlock(64, 3)
 
-        self.conv3 = nn.Conv1d(64, 128, 5, padding=2, bias=False)
-        self.bn3 = nn.BatchNorm1d(128)
+        # Stage 3: (B,64,32) → pool → (B,128,16) → SE blocks
+        self.conv3 = nn.Conv1d(64, 128, 3, padding=1, bias=False)
+        self.bn3   = nn.BatchNorm1d(128)
         self.pool3 = nn.MaxPool1d(2)
         self.res3a = _SEResBlock(128, 3)
         self.res3b = _SEResBlock(128, 3)
 
+        # Stage 4: (B,128,16) → pool → (B,256,8) → SE block
         self.conv4 = nn.Conv1d(128, 256, 3, padding=1, bias=False)
-        self.bn4 = nn.BatchNorm1d(256)
+        self.bn4   = nn.BatchNorm1d(256)
         self.pool4 = nn.MaxPool1d(2)
-        self.res4 = _SEResBlock(256, 3)
+        self.res4  = _SEResBlock(256, 3)
 
-        self.gap = nn.AdaptiveAvgPool1d(1)
+        self.gap  = nn.AdaptiveAvgPool1d(1)
         self.drop = nn.Dropout(0.3)
-        self.fc = nn.Linear(256, num_classes)
+        self.fc   = nn.Linear(256, num_classes)
 
     def forward(self, x):
         x = self.input_bn(x)
