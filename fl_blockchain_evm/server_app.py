@@ -1,26 +1,32 @@
-import torch
-import numpy as np
 import json
 import os
-from typing import Dict
 from datetime import datetime
+from typing import Dict
+
+import matplotlib
 import matplotlib.pyplot as plt
-from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
-from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NUM_CLASSES
-from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
-from fl_blockchain_evm.dashboard import state as live_state
-from fl_blockchain_evm.utils import get_device, print_table
+import numpy as np
+import seaborn as sns
+import torch
+
+matplotlib.use('Agg')
+
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord, RecordDict
 from flwr.serverapp import Grid, ServerApp
-import seaborn as sns
-import matplotlib
-matplotlib.use('Agg')
+
+from fl_blockchain_evm.dashboard import state as live_state
+from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
+from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
+from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NUM_CLASSES
+from fl_blockchain_evm.utils import get_device, print_table
 
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
-SC_LABELS = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS',
-             'SITTING', 'STANDING', 'LAYING']
+SC_LABELS = [
+    'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING', 'WAIST_BEND',
+    'ARM_ELEVATION', 'CROUCHING', 'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
+]
 
 _blockchain = FLBlockchain()
 
@@ -58,7 +64,7 @@ def global_evaluate(server_round, arrays, config=None):
     m = test_fn(model, testloader, dev)
 
     print(f"\n{Y}{'═'*60}{R}")
-    print(f"{Y}  [ROUND {server_round}] GLOBAL — 6 Activities{R}")
+    print(f"{Y}  [ROUND {server_round}] GLOBAL — 12 Activities (MHEALTH){R}")
     print(f"{Y}{'═'*60}{R}")
     for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
               "precision_macro", "recall_macro", "specificity_macro", "auc_macro"]:
@@ -285,7 +291,7 @@ def main(grid: Grid, context: Context):
 
     ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
     print(f"\n{C}{'═'*60}")
-    print(f"  6 Activities: {', '.join(SC_NAMES)}")
+    print(f"  12 Activities (MHEALTH): {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
     print(f"  IPFS:       {ipfs_status}")

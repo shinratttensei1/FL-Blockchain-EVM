@@ -1,33 +1,40 @@
 #!/usr/bin/env python3
-"""Run the FL Blockchain Dashboard."""
+"""Run the FL-Blockchain Management Server.
+
+Serves two UIs on http://localhost:8080:
+  /          → Management console  (devices, contracts, training control)
+  /monitor   → Live metrics dashboard (topology, charts, blockchain ledger)
+
+API reference:
+  /docs      → Interactive Swagger UI
+  /redoc     → ReDoc reference
+"""
 
 import sys
 
 
-def main():
-    """Run the dashboard server."""
-    print("Starting FL Blockchain Dashboard...")
-    print("Dashboard will be available at: http://localhost:8080")
-    print("Press Ctrl+C to stop")
+def main() -> None:
+    print("=" * 58)
+    print("  FL·CHAIN — Management Server")
+    print("=" * 58)
+    print("  Management console : http://localhost:8080/")
+    print("  Live monitor       : http://localhost:8080/monitor")
+    print("  API docs           : http://localhost:8080/docs")
+    print("  Press Ctrl+C to stop")
+    print("=" * 58)
 
     try:
-        # Run the dashboard server
-        from fl_blockchain_evm.dashboard.server import app
         import uvicorn
+        from fl_blockchain_evm.management.server import app
 
-        uvicorn.run(
-            app,
-            host="0.0.0.0",
-            port=8080,
-            reload=False
-        )
-    except ImportError as e:
-        print(f"Import error: {e}")
-        print("\nMake sure all dependencies are installed:")
-        print("  pip install fastapi uvicorn web3 python-dotenv")
+        uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)
+    except ImportError as exc:
+        print(f"\nImport error: {exc}")
+        print("\nInstall missing packages:")
+        print("  pip install fastapi uvicorn web3 python-dotenv pydantic")
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\nDashboard stopped")
+        print("\nServer stopped.")
         sys.exit(0)
 
 
