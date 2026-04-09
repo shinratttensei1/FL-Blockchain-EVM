@@ -1,28 +1,37 @@
-import torch
-import numpy as np
 import json
 import os
-from typing import Dict
 from datetime import datetime
+from typing import Dict
+
+import matplotlib
 import matplotlib.pyplot as plt
-from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
-from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NUM_CLASSES
-from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
-from fl_blockchain_evm.dashboard import state as live_state
-from fl_blockchain_evm.utils import get_device, print_table
+import numpy as np
+import seaborn as sns
+import torch
+
+matplotlib.use('Agg')
+
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord, RecordDict
 from flwr.serverapp import Grid, ServerApp
-import seaborn as sns
-import matplotlib
-matplotlib.use('Agg')
+
+from fl_blockchain_evm.dashboard import state as live_state
+from fl_blockchain_evm.infra.blockchain import EVMBlockchain as FLBlockchain
+from fl_blockchain_evm.strategy.medical_fedavg import MedicalFedAvg
+from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NUM_CLASSES
+from fl_blockchain_evm.utils import get_device, print_table
 
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
 SC_LABELS = [
+<<<<<<< HEAD
     'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
     'WAIST_BENDS', 'ARM_ELEVATION', 'KNEES_BENDING',
     'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
+=======
+    'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING', 'WAIST_BEND',
+    'ARM_ELEVATION', 'CROUCHING', 'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
+>>>>>>> e732c25bb06ca7f3b2673fb723922b0d441af05b
 ]
 
 _blockchain = FLBlockchain()

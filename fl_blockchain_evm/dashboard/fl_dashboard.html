@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FL·CHAIN — Network Topology</title>
+<title>FL·CHAIN — MHEALTH Network Topology</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root {
@@ -204,7 +204,7 @@ canvas#mchart { display: block; width: 100%; height: 100%; }
 <body>
 
 <header>
-  <div class="logo">FL·CHAIN <div class="logo-div"></div><span class="logo-sub">Federated HAR — Network Topology</span></div>
+  <div class="logo">FL·CHAIN <div class="logo-div"></div><span class="logo-sub">MHEALTH Federated HAR — Network Topology</span></div>
   <div class="hdr-right">
     <div style="display:flex;align-items:center;gap:5px;"><div class="cdot" id="cdot"></div><span id="clbl">Connecting</span></div>
     <span id="lupd" style="color:var(--light)">—</span>
@@ -309,7 +309,14 @@ canvas#mchart { display: block; width: 100%; height: 100%; }
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────
 const API = '';
+<<<<<<< HEAD
 const SC  = ['STANDING','SITTING','LYING','WALKING','CLIMB_ST','WAIST_BND','ARM_ELEV','KNEES_BND','CYCLING','JOGGING','RUNNING','JUMP_FB'];
+=======
+const SC  = [
+  'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING', 'WAIST_BEND',
+  'ARM_ELEV', 'CROUCHING', 'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_F_B',
+];
+>>>>>>> e732c25bb06ca7f3b2673fb723922b0d441af05b
 const N   = 10; // devices
 
 // ─────────────────────────────────────────────────────────────
@@ -350,22 +357,34 @@ const STATES = {
 const sc = s => STATES[s] || STATES.idle;
 
 // ── Layout ──
+// Device ring is centred at 33 % of canvas width.
+// Ring radius is clamped by canvas height so devices never overflow
+// vertically. Blockchain and IPFS are anchored at 82 % of canvas width,
+// guaranteeing they sit well outside the rightmost device (~47-55 % of W).
 function layout() {
   const W = cv.offsetWidth, H = cv.offsetHeight;
-  const cx = W * 0.42, cy = H * 0.5;
-  const ring = Math.min(W * 0.34, H * 0.40);
 
-  nodes.server     = { x: cx,          y: cy,           r: 30, kind:'server',     label:'FL Server',    sub:'FedAvg' };
-  nodes.blockchain = { x: cx + W*0.26, y: cy - H*0.22,  r: 24, kind:'blockchain', label:'Blockchain',   sub:'Base Sepolia'  };
-  nodes.ipfs       = { x: cx + W*0.26, y: cy + H*0.22,  r: 22, kind:'ipfs',       label:'IPFS',         sub:'Off-chain'     };
+  // Server anchored at left-centre
+  const cx = W * 0.33, cy = H * 0.5;
+
+  // Ring radius: height-capped so all 10 device labels stay on canvas
+  const ring = Math.min(W * 0.27, H * 0.41);
+
+  // Infrastructure nodes in a column on the right — always outside ring
+  const infraX = W * 0.82;
+  const infraGapY = H * 0.22;
+
+  nodes.server     = { x: cx,      y: cy,              r: 28, kind:'server',     label:'FL Server',   sub:'FedAvg'      };
+  nodes.blockchain = { x: infraX,  y: cy - infraGapY,  r: 24, kind:'blockchain', label:'Blockchain',  sub:'Base Sepolia'};
+  nodes.ipfs       = { x: infraX,  y: cy + infraGapY,  r: 22, kind:'ipfs',       label:'IPFS',        sub:'Off-chain'   };
 
   for (let i = 0; i < N; i++) {
     const a = (2 * Math.PI * i / N) - Math.PI / 2;
     nodes[`d${i}`] = {
       x: cx + Math.cos(a) * ring,
       y: cy + Math.sin(a) * ring,
-      r: 20, kind:'device', idx:i,
-      label:`Device ${i}`, sub:'Raspberry Pi'
+      r: 18, kind:'device', idx:i,
+      label:`Device ${i}`, sub:'Body Sensor'
     };
   }
 }
