@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FL·CHAIN — Management Console</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --paper:   #F2F1ED;
+  --white:   #FAFAF8;
+  --ink:     #1A1917;
+  --rule:    #C8C5BC;
+  --mid:     #787570;
+  --dim:     #ADAAA3;
+  --navy:    #1C3461;
+  --forest:  #1A5235;
+  --crimson: #7B1A1A;
+  --gold:    #7B5B1A;
+  --violet:  #4A2E78;
+  --mono:    'IBM Plex Mono', monospace;
+  --sans:    'DM Sans', system-ui, sans-serif;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--mono); font-size: 11px; min-height: 100vh; }
+
+/* ── Header ── */
+header {
+  background: var(--white);
+  border-bottom: 1.5px solid var(--ink);
+  padding: 0 24px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 300;
+}
+.logo { font-weight: 700; letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+.logo-div { width: 1px; height: 14px; background: var(--rule); }
+.logo-sub { font-family: Georgia, serif; font-weight: 400; font-style: italic; font-size: 11px; color: var(--mid); text-transform: none; letter-spacing: 0; }
+.hdr-right { display: flex; align-items: center; gap: 16px; font-size: 10px; color: var(--mid); }
+.hdr-link { text-decoration: none; color: var(--mid); border: 1px solid var(--rule); padding: 2px 8px; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.hdr-link:hover { border-color: var(--mid); color: var(--ink); }
+.conn-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--dim); display: inline-block; }
+.conn-dot.on  { background: var(--forest); }
+.conn-dot.off { background: var(--crimson); animation: blink .9s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Main layout ── */
+.main { max-width: 1480px; margin: 0 auto; padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 1px; }
+
+/* ── Panel ── */
+.panel { background: var(--white); border: 1px solid var(--rule); }
+.panel-hdr { padding: 8px 14px 7px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 8px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); }
+.panel-body { padding: 0; }
+
+/* ── Two-column top row ── */
+.top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
+
+/* ── Buttons ── */
+.btn { font-family: var(--mono); font-size: 9px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; cursor: pointer; background: transparent; transition: background .1s, color .1s; white-space: nowrap; }
+.btn-primary { border-color: var(--ink); color: var(--ink); }
+.btn-primary:hover { background: var(--ink); color: var(--white); }
+.btn-forest { border-color: var(--forest); color: var(--forest); }
+.btn-forest:hover { background: var(--forest); color: var(--white); }
+.btn-crimson { border-color: var(--crimson); color: var(--crimson); }
+.btn-crimson:hover { background: var(--crimson); color: var(--white); }
+.btn-gold { border-color: var(--gold); color: var(--gold); }
+.btn-gold:hover { background: var(--gold); color: var(--white); }
+.btn-dim { border-color: var(--rule); color: var(--mid); }
+.btn-dim:hover { border-color: var(--mid); color: var(--ink); }
+.btn:disabled { opacity: .38; cursor: not-allowed; }
+
+/* ── Tables ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--ink); }
+th { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); padding: 7px 12px; text-align: left; font-weight: 500; white-space: nowrap; }
+td { padding: 7px 12px; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 10px; color: var(--ink); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--paper); }
+.empty-row td { color: var(--dim); font-size: 9px; letter-spacing: .06em; text-align: center; padding: 20px; }
+
+/* ── Status badges ── */
+.badge { display: inline-flex; align-items: center; padding: 1px 6px; border: 1px solid currentColor; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.badge-on     { color: var(--forest); }
+.badge-off    { color: var(--dim); }
+.badge-active { color: var(--navy); }
+.badge-run    { color: var(--gold); }
+
+/* ── Action cell ── */
+.actions { display: flex; gap: 6px; align-items: center; }
+
+/* ── Mode toggle ── */
+.mode-bar { padding: 10px 14px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; gap: 12px; }
+.mode-lbl { font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); margin-right: 4px; }
+.mode-btn {
+  font-family: var(--mono); font-size: 9px; font-weight: 500; letter-spacing: .08em;
+  text-transform: uppercase; padding: 4px 14px; border: 1px solid var(--rule);
+  cursor: pointer; background: transparent; color: var(--mid); transition: all .1s;
+}
+.mode-btn.active { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.mode-hint { font-size: 9px; color: var(--dim); margin-left: 8px; }
+
+/* ── Training panel ── */
+.training-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+}
+.training-grid-fed {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+}
+.sim-fields, .fed-fields { display: contents; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+.field input {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 5px 8px; width: 100%; outline: none;
+}
+.field input:focus { border-color: var(--mid); background: var(--white); }
+.training-status {
+  padding: 8px 14px;
+  border-top: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 14px;
+  font-size: 9px; color: var(--mid);
+}
+.training-log {
+  padding: 0 14px 12px;
+  font-size: 9px; color: var(--mid);
+  max-height: 130px; overflow-y: auto;
+  font-family: var(--mono); line-height: 1.6;
+  white-space: pre-wrap; border-top: 1px solid var(--rule);
+  display: none;
+}
+.training-log.visible { display: block; }
+
+/* ── Modal overlay ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(26,25,23,.45); z-index: 400; align-items: center; justify-content: center; }
+.overlay.open { display: flex; }
+.modal {
+  background: var(--white); border: 1.5px solid var(--ink);
+  padding: 24px; min-width: 360px; max-width: 480px; width: 100%;
+  position: relative;
+}
+.modal h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 18px; }
+.modal-close {
+  position: absolute; top: 14px; right: 14px;
+  font-size: 14px; cursor: pointer; color: var(--mid); background: none;
+  border: none; font-family: var(--mono); line-height: 1;
+}
+.modal-close:hover { color: var(--ink); }
+.form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.form-row label { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+.form-row input, .form-row select {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 6px 8px; outline: none; width: 100%;
+}
+.form-row input:focus, .form-row select:focus { border-color: var(--ink); background: var(--white); }
+.form-row select { cursor: pointer; }
+.form-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+.form-error { font-size: 9px; color: var(--crimson); margin-top: 6px; display: none; }
+.form-error.show { display: block; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-thumb { background: var(--rule); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .top-row { grid-template-columns: 1fr; }
+  .training-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .main { padding: 10px 12px 30px; }
+  header { padding: 0 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ Header ═══ -->
+<header>
+  <div class="logo">
+    FL·CHAIN
+    <div class="logo-div"></div>
+    <span class="logo-sub">Management Console</span>
+  </div>
+  <div class="hdr-right">
+    <span><span class="conn-dot" id="connDot"></span> <span id="connLbl">Connecting</span></span>
+    <a class="hdr-link" href="/monitor" target="_blank">Live Monitor ↗</a>
+    <a class="hdr-link" href="/docs" target="_blank">API Docs ↗</a>
+  </div>
+</header>
+
+<!-- ═══ Main ═══ -->
+<div class="main">
+
+  <!-- ── Top row: Devices + Contracts ── -->
+  <div class="top-row">
+
+    <!-- Devices Panel -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Edge Devices</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="deviceCount" style="font-size:9px;color:var(--mid);">0 registered</span>
+          <button class="btn btn-primary" onclick="openModal('device')">+ Add Device</button>
+        </div>
+      </div>
+      <div class="panel-body tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Host : Port</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="devicesBody">
+            <tr class="empty-row"><td colspan="6">No devices registered</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Contracts Panel -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Smart Contracts</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="contractCount" style="font-size:9px;color:var(--mid);">0 contracts</span>
+          <button class="btn btn-primary" onclick="openModal('contract')">+ Add Contract</button>
+        </div>
+      </div>
+      <div class="panel-body tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Network</th>
+              <th>Address</th>
+              <th>Chain ID</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="contractsBody">
+            <tr class="empty-row"><td colspan="6">No contracts registered</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Training Configuration Panel ── -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <span class="panel-title">Training Configuration &amp; Control</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="trainStatus" class="badge badge-off">Idle</span>
+        <button class="btn btn-dim" id="logToggle" onclick="toggleLog()">Show Log</button>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <!-- ── Mode selector ── -->
+      <div class="mode-bar">
+        <span class="mode-lbl">Run mode</span>
+        <button class="mode-btn active" id="modeSimBtn" onclick="setMode('simulation')">
+          Simulation
+        </button>
+        <button class="mode-btn" id="modeFedBtn" onclick="setMode('federation')">
+          Real Federation
+        </button>
+        <span class="mode-hint" id="modeHint">
+          Virtual supernodes — no edge hardware required
+        </span>
+      </div>
+
+      <!-- ── Simulation fields ── -->
+      <div id="simFields">
+        <div class="training-grid">
+          <div class="field"><label>Rounds</label>
+            <input type="number" id="cfgRounds" value="10" min="1" max="200"/></div>
+          <div class="field"><label>Learning Rate</label>
+            <input type="number" id="cfgLR" value="0.002" step="0.0001" min="0.00001" max="0.1"/></div>
+          <div class="field"><label>Local Epochs</label>
+            <input type="number" id="cfgEpochs" value="5" min="1" max="50"/></div>
+          <div class="field"><label>Supernodes</label>
+            <input type="number" id="cfgSupernodes" value="10" min="1" max="100"
+              title="Number of virtual FL clients to simulate"/></div>
+          <button class="btn btn-gold" id="saveConfigBtn" onclick="saveConfig()" style="height:28px;">Save</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-forest" id="launchBtn" onclick="launchTraining()" style="height:28px;">▶ Launch</button>
+            <button class="btn btn-crimson" id="stopBtn" onclick="stopTraining()" style="height:28px;" disabled>■ Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Federation fields ── -->
+      <div id="fedFields" style="display:none;">
+        <div class="training-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr auto auto;">
+          <div class="field"><label>SuperLink Address</label>
+            <input id="cfgSuperlink" placeholder="192.168.1.100:9093"
+              title="host:port of the Flower SuperLink running on your edge network"/></div>
+          <div class="field"><label>Rounds</label>
+            <input type="number" id="cfgRoundsFed" value="10" min="1" max="200"/></div>
+          <div class="field"><label>Learning Rate</label>
+            <input type="number" id="cfgLRFed" value="0.002" step="0.0001" min="0.00001" max="0.1"/></div>
+          <div class="field"><label>Local Epochs</label>
+            <input type="number" id="cfgEpochsFed" value="5" min="1" max="50"/></div>
+          <button class="btn btn-gold" id="saveConfigBtnFed" onclick="saveConfig()" style="height:28px;">Save</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-forest" id="launchBtnFed" onclick="launchTraining()" style="height:28px;">▶ Launch</button>
+            <button class="btn btn-crimson" id="stopBtnFed" onclick="stopTraining()" style="height:28px;" disabled>■ Stop</button>
+          </div>
+        </div>
+        <div style="padding:0 14px 12px;display:flex;align-items:center;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--mid);cursor:pointer;">
+            <input type="checkbox" id="cfgInsecure" checked/>
+            Allow insecure (no TLS) — uncheck for production deployments
+          </label>
+          <span id="fedDeviceCount" style="margin-left:auto;font-size:9px;color:var(--mid);"></span>
+        </div>
+      </div>
+
+      <div class="training-status" id="trainingStatusBar">
+        <span id="statusDetail">Status: Idle — choose a mode and press Launch</span>
+        <span id="modeTag" style="margin-left:auto;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);">simulation</span>
+        <span id="pidInfo" style="color:var(--dim);margin-left:14px;"></span>
+      </div>
+      <div class="training-log" id="trainingLog"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+
+<!-- ═══ Add Device Modal ═══ -->
+<div class="overlay" id="deviceOverlay" onclick="if(event.target===this)closeModal('device')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('device')">✕</button>
+    <h2>Register Edge Device</h2>
+    <div class="form-row">
+      <label>Display Name</label>
+      <input id="d_name" placeholder="Device 0" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <label>Host / IP Address</label>
+      <input id="d_host" placeholder="192.168.1.10" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <label>Port</label>
+      <input id="d_port" type="number" value="8765" min="1" max="65535"/>
+    </div>
+    <div class="form-row">
+      <label>Device Type</label>
+      <select id="d_type">
+        <option value="sensor_node">Sensor Node (wearable)</option>
+        <option value="raspberry_pi">Raspberry Pi</option>
+        <option value="jetson">NVIDIA Jetson</option>
+        <option value="cloud">Cloud VM</option>
+        <option value="workstation">Workstation</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Description (optional)</label>
+      <input id="d_desc" placeholder="MHEALTH subject 1 sensor rig"/>
+    </div>
+    <div class="form-error" id="deviceErr"></div>
+    <div class="form-actions">
+      <button class="btn btn-dim" onclick="closeModal('device')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDevice()">Add Device</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ Add Contract Modal ═══ -->
+<div class="overlay" id="contractOverlay" onclick="if(event.target===this)closeModal('contract')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('contract')">✕</button>
+    <h2>Register Smart Contract</h2>
+    <div class="form-row">
+      <label>Contract Name</label>
+      <input id="c_name" placeholder="MHEALTH v1" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <label>Contract Address (0x…)</label>
+      <input id="c_addr" placeholder="0x1234...abcd" autocomplete="off" style="font-size:10px;"/>
+    </div>
+    <div class="form-row">
+      <label>Network Name</label>
+      <input id="c_net" value="Base Sepolia"/>
+    </div>
+    <div class="form-row">
+      <label>RPC URL</label>
+      <input id="c_rpc" value="https://sepolia.base.org"/>
+    </div>
+    <div class="form-row">
+      <label>Chain ID</label>
+      <input id="c_chain" type="number" value="84532"/>
+    </div>
+    <div class="form-row">
+      <label>ABI File Path</label>
+      <input id="c_abi" value="contracts/FLBlockchain_abi.json"/>
+    </div>
+    <div class="form-error" id="contractErr"></div>
+    <div class="form-actions">
+      <button class="btn btn-dim" onclick="closeModal('contract')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitContract()">Add Contract</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+const API = '';
+let devices        = [];
+let contracts      = [];
+let trainingRunning = false;
+let currentMode    = 'simulation';   // 'simulation' | 'federation'
+
+// ─────────────────────────────────────────────────────────────
+// API HELPERS
+// ─────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+const get   = p     => api('GET',    p);
+const post  = (p,b) => api('POST',   p, b);
+const put   = (p,b) => api('PUT',    p, b);
+const del   = p     => api('DELETE', p);
+const patch = (p,b) => api('PATCH',  p, b);
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadDevices(), loadContracts(), loadConfig()]);
+  startPolling();
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODE TOGGLE
+// ─────────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+
+  const isSim = mode === 'simulation';
+  document.getElementById('simFields').style.display = isSim ? '' : 'none';
+  document.getElementById('fedFields').style.display = isSim ? 'none' : '';
+
+  document.getElementById('modeSimBtn').classList.toggle('active', isSim);
+  document.getElementById('modeFedBtn').classList.toggle('active', !isSim);
+
+  document.getElementById('modeHint').textContent = isSim
+    ? 'Virtual supernodes — no edge hardware required'
+    : 'Real SuperLink — registered devices will receive training tasks';
+
+  document.getElementById('modeTag').textContent = mode;
+
+  // In federation mode, show how many enabled devices are registered
+  if (!isSim) updateFedDeviceCount();
+}
+
+function updateFedDeviceCount() {
+  const enabled = devices.filter(d => d.enabled).length;
+  const el = document.getElementById('fedDeviceCount');
+  if (el) el.textContent = `${enabled} device${enabled !== 1 ? 's' : ''} enabled`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEVICES
+// ─────────────────────────────────────────────────────────────
+async function loadDevices() {
+  try {
+    devices = await get('/api/devices');
+    renderDevices();
+    updateFedDeviceCount();
+  } catch(e) { console.error('devices:', e); }
+}
+
+function renderDevices() {
+  const tbody = document.getElementById('devicesBody');
+  document.getElementById('deviceCount').textContent =
+    devices.length + ' registered';
+
+  if (!devices.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No devices registered — add one above, or use Simulation mode</td></tr>';
+    return;
+  }
+  tbody.innerHTML = devices.map((d, i) => `
+    <tr>
+      <td style="color:var(--dim)">${i}</td>
+      <td>
+        <strong>${esc(d.name)}</strong>
+        ${d.description ? `<br><span style="font-size:9px;color:var(--dim)">${esc(d.description)}</span>` : ''}
+      </td>
+      <td style="font-size:10px">${esc(d.host)}<span style="color:var(--dim)">:</span>${d.port}</td>
+      <td style="color:var(--mid)">${typeLabel(d.type)}</td>
+      <td>
+        <span class="badge ${d.enabled ? 'badge-on' : 'badge-off'}">
+          ${d.enabled ? '● enabled' : '○ disabled'}
+        </span>
+      </td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-dim" style="padding:2px 6px" onclick="toggleDevice('${d.id}')">
+            ${d.enabled ? 'Disable' : 'Enable'}
+          </button>
+          <button class="btn btn-crimson" style="padding:2px 6px" onclick="removeDevice('${d.id}')">Remove</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function toggleDevice(id) {
+  await patch(`/api/devices/${id}/toggle`);
+  await loadDevices();
+}
+
+async function removeDevice(id) {
+  if (!confirm('Remove this device?')) return;
+  await del(`/api/devices/${id}`);
+  await loadDevices();
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODALS
+// ─────────────────────────────────────────────────────────────
+function openModal(type) {
+  document.getElementById(`${type}Overlay`).classList.add('open');
+}
+function closeModal(type) {
+  document.getElementById(`${type}Overlay`).classList.remove('open');
+  if (type === 'device')   document.getElementById('deviceErr').classList.remove('show');
+  if (type === 'contract') document.getElementById('contractErr').classList.remove('show');
+}
+
+async function submitDevice() {
+  const errEl = document.getElementById('deviceErr');
+  errEl.classList.remove('show');
+  const name = document.getElementById('d_name').value.trim();
+  const host = document.getElementById('d_host').value.trim();
+  const port = parseInt(document.getElementById('d_port').value);
+  const type = document.getElementById('d_type').value;
+  const desc = document.getElementById('d_desc').value.trim();
+
+  if (!name) { errEl.textContent = 'Name is required'; errEl.classList.add('show'); return; }
+  if (!host) { errEl.textContent = 'Host is required'; errEl.classList.add('show'); return; }
+  if (!port || port < 1 || port > 65535) { errEl.textContent = 'Invalid port'; errEl.classList.add('show'); return; }
+
+  try {
+    await post('/api/devices', { name, host, port, type, description: desc });
+    closeModal('device');
+    ['d_name','d_host','d_desc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('d_port').value = '8765';
+    await loadDevices();
+  } catch(e) { errEl.textContent = e.message; errEl.classList.add('show'); }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONTRACTS
+// ─────────────────────────────────────────────────────────────
+async function loadContracts() {
+  try {
+    contracts = await get('/api/contracts');
+    renderContracts();
+  } catch(e) { console.error('contracts:', e); }
+}
+
+function renderContracts() {
+  const tbody = document.getElementById('contractsBody');
+  document.getElementById('contractCount').textContent =
+    contracts.length + (contracts.length === 1 ? ' contract' : ' contracts');
+
+  if (!contracts.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No contracts registered</td></tr>';
+    return;
+  }
+  tbody.innerHTML = contracts.map(c => `
+    <tr style="${c.active ? 'background:#F0F4FA' : ''}">
+      <td><strong>${esc(c.name)}</strong></td>
+      <td>${esc(c.network)}</td>
+      <td style="font-family:var(--mono);font-size:9px;color:var(--mid);" title="${esc(c.address)}">${shortAddr(c.address)}</td>
+      <td style="color:var(--mid)">${c.chain_id}</td>
+      <td>${c.active
+        ? '<span class="badge badge-active">★ Active</span>'
+        : '<span class="badge badge-off">Inactive</span>'}</td>
+      <td>
+        <div class="actions">
+          ${!c.active
+            ? `<button class="btn btn-gold" style="padding:2px 6px" onclick="activateContract('${c.id}')">Activate</button>`
+            : ''}
+          <button class="btn btn-crimson" style="padding:2px 6px" onclick="removeContract('${c.id}')">Remove</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function activateContract(id) {
+  await put(`/api/contracts/${id}/activate`);
+  await loadContracts();
+}
+
+async function removeContract(id) {
+  if (!confirm('Remove this contract?')) return;
+  await del(`/api/contracts/${id}`);
+  await loadContracts();
+}
+
+async function submitContract() {
+  const errEl = document.getElementById('contractErr');
+  errEl.classList.remove('show');
+  const addr  = document.getElementById('c_addr').value.trim();
+  const net   = document.getElementById('c_net').value.trim();
+  const rpc   = document.getElementById('c_rpc').value.trim();
+  const chain = parseInt(document.getElementById('c_chain').value);
+  const name  = document.getElementById('c_name').value.trim();
+  const abi   = document.getElementById('c_abi').value.trim();
+
+  if (!addr.match(/^0x[0-9a-fA-F]{40}$/)) {
+    errEl.textContent = 'Invalid Ethereum address (must be 0x + 40 hex chars)';
+    errEl.classList.add('show'); return;
+  }
+  if (!rpc) { errEl.textContent = 'RPC URL is required'; errEl.classList.add('show'); return; }
+
+  try {
+    await post('/api/contracts', { address: addr, network: net, rpc_url: rpc, chain_id: chain, name, abi_path: abi });
+    closeModal('contract');
+    ['c_addr','c_name'].forEach(id => document.getElementById(id).value = '');
+    await loadContracts();
+  } catch(e) { errEl.textContent = e.message; errEl.classList.add('show'); }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TRAINING CONFIG
+// ─────────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const cfg = await get('/api/config');
+
+    // Common fields
+    document.getElementById('cfgRounds').value    = cfg.num_rounds     ?? 10;
+    document.getElementById('cfgLR').value        = cfg.lr             ?? 0.002;
+    document.getElementById('cfgEpochs').value    = cfg.local_epochs   ?? 5;
+    // Simulation-only
+    document.getElementById('cfgSupernodes').value = cfg.num_supernodes ?? 10;
+    // Federation-only
+    document.getElementById('cfgRoundsFed').value  = cfg.num_rounds     ?? 10;
+    document.getElementById('cfgLRFed').value      = cfg.lr             ?? 0.002;
+    document.getElementById('cfgEpochsFed').value  = cfg.local_epochs   ?? 5;
+    document.getElementById('cfgSuperlink').value  = cfg.superlink_address ?? '';
+    document.getElementById('cfgInsecure').checked = cfg.superlink_insecure !== false;
+
+    // Restore mode
+    if (cfg.run_mode === 'federation') setMode('federation');
+    else                               setMode('simulation');
+  } catch(e) { console.error('config:', e); }
+}
+
+async function saveConfig() {
+  // Determine active button and fields based on current mode
+  const isSim = currentMode === 'simulation';
+  const btn = document.getElementById(isSim ? 'saveConfigBtn' : 'saveConfigBtnFed');
+
+  try {
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    const payload = {
+      run_mode:           currentMode,
+      num_rounds:         parseInt(isSim
+                            ? document.getElementById('cfgRounds').value
+                            : document.getElementById('cfgRoundsFed').value),
+      lr:                 parseFloat(isSim
+                            ? document.getElementById('cfgLR').value
+                            : document.getElementById('cfgLRFed').value),
+      local_epochs:       parseInt(isSim
+                            ? document.getElementById('cfgEpochs').value
+                            : document.getElementById('cfgEpochsFed').value),
+    };
+
+    if (isSim) {
+      payload.num_supernodes = parseInt(document.getElementById('cfgSupernodes').value);
+    } else {
+      payload.superlink_address  = document.getElementById('cfgSuperlink').value.trim();
+      payload.superlink_insecure = document.getElementById('cfgInsecure').checked;
+    }
+
+    await put('/api/config', payload);
+    btn.textContent = '✓ Saved';
+    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1400);
+  } catch(e) {
+    alert('Save failed: ' + e.message);
+    btn.textContent = 'Save'; btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TRAINING LIFECYCLE
+// ─────────────────────────────────────────────────────────────
+async function launchTraining() {
+  const isSim = currentMode === 'simulation';
+
+  // Federation pre-flight checks
+  if (!isSim) {
+    const superlink = document.getElementById('cfgSuperlink').value.trim();
+    if (!superlink) {
+      alert('Federation mode requires a SuperLink address (e.g. 192.168.1.100:9093).\n\nSet it in the field above, or switch to Simulation mode.');
+      return;
+    }
+    const enabled = devices.filter(d => d.enabled).length;
+    if (enabled === 0) {
+      if (!confirm('No edge devices are currently enabled.\n\nThe SuperLink must have SuperNodes already running on your edge devices.\n\nContinue anyway?')) return;
+    }
+  }
+
+  const modeLabel = isSim ? 'simulation' : 'federation';
+  if (!confirm(`Launch training in ${modeLabel} mode?`)) return;
+
+  const launchBtn = document.getElementById(isSim ? 'launchBtn' : 'launchBtnFed');
+  launchBtn.disabled = true;
+
+  try {
+    const payload = {
+      run_mode:     currentMode,
+      num_rounds:   parseInt(isSim
+                      ? document.getElementById('cfgRounds').value
+                      : document.getElementById('cfgRoundsFed').value),
+      lr:           parseFloat(isSim
+                      ? document.getElementById('cfgLR').value
+                      : document.getElementById('cfgLRFed').value),
+      local_epochs: parseInt(isSim
+                      ? document.getElementById('cfgEpochs').value
+                      : document.getElementById('cfgEpochsFed').value),
+    };
+    if (isSim) {
+      payload.num_supernodes = parseInt(document.getElementById('cfgSupernodes').value);
+    } else {
+      payload.superlink_address  = document.getElementById('cfgSuperlink').value.trim();
+      payload.superlink_insecure = document.getElementById('cfgInsecure').checked;
+    }
+
+    const res = await post('/api/training/start', payload);
+    setTrainingUI(true, res.pid, res.mode);
+  } catch(e) {
+    alert('Launch failed: ' + e.message);
+    launchBtn.disabled = false;
+  }
+}
+
+async function stopTraining() {
+  if (!confirm('Terminate the training process?')) return;
+  try {
+    await post('/api/training/stop');
+    setTrainingUI(false, null, currentMode);
+  } catch(e) { alert('Stop failed: ' + e.message); }
+}
+
+function setTrainingUI(running, pid, mode) {
+  trainingRunning = running;
+  const isSim = (mode || currentMode) === 'simulation';
+
+  // Update all Launch/Stop button pairs
+  ['launchBtn','launchBtnFed'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = running;
+  });
+  ['stopBtn','stopBtnFed'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !running;
+  });
+
+  const badge = document.getElementById('trainStatus');
+  const modeLabel = isSim ? 'simulation' : 'federation';
+
+  if (running) {
+    badge.className   = 'badge badge-run';
+    badge.textContent = `● Running (${modeLabel})`;
+    document.getElementById('statusDetail').textContent = 'Training in progress — round polling active';
+    document.getElementById('pidInfo').textContent      = pid ? `PID ${pid}` : '';
+  } else {
+    badge.className   = 'badge badge-off';
+    badge.textContent = 'Idle';
+    document.getElementById('statusDetail').textContent = 'Status: Idle — choose a mode and press Launch';
+    document.getElementById('pidInfo').textContent      = '';
+  }
+  document.getElementById('modeTag').textContent = modeLabel;
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOG PANEL
+// ─────────────────────────────────────────────────────────────
+let logVisible = false;
+function toggleLog() {
+  logVisible = !logVisible;
+  document.getElementById('trainingLog').classList.toggle('visible', logVisible);
+  document.getElementById('logToggle').textContent = logVisible ? 'Hide Log' : 'Show Log';
+}
+
+async function refreshLog() {
+  if (!logVisible) return;
+  try {
+    const data = await get('/api/training/log?lines=60');
+    const el = document.getElementById('trainingLog');
+    el.textContent = (data.lines || []).join('\n') || '— no output yet —';
+    el.scrollTop = el.scrollHeight;
+  } catch(_) {}
+}
+
+// ─────────────────────────────────────────────────────────────
+// POLLING
+// ─────────────────────────────────────────────────────────────
+function startPolling() {
+  setInterval(async () => {
+    try {
+      const s  = await get('/api/training/status');
+      const ps = s.process;
+      if (ps.running !== trainingRunning) {
+        setTrainingUI(ps.running, ps.pid, currentMode);
+      }
+      if (ps.running) {
+        document.getElementById('statusDetail').textContent =
+          `Training in progress — ${ps.elapsed_s ? ps.elapsed_s + 's elapsed' : ''}`;
+        document.getElementById('pidInfo').textContent = `PID ${ps.pid}`;
+      } else if (ps.exit_code !== null) {
+        const badge = document.getElementById('trainStatus');
+        if (ps.exit_code === 0) {
+          badge.className = 'badge badge-on'; badge.textContent = '✓ Complete';
+          document.getElementById('statusDetail').textContent = 'Training finished successfully';
+        } else {
+          badge.className = 'badge badge-off';
+          badge.textContent = `Exit ${ps.exit_code}`;
+          document.getElementById('statusDetail').textContent =
+            `Process exited with code ${ps.exit_code} — check the log for errors`;
+        }
+        document.getElementById('pidInfo').textContent = '';
+        ['launchBtn','launchBtnFed'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      }
+    } catch(_) {}
+    refreshLog();
+  }, 3000);
+
+  // Health / connectivity check
+  setInterval(async () => {
+    try {
+      await get('/api/health');
+      document.getElementById('connDot').className  = 'conn-dot on';
+      document.getElementById('connLbl').textContent = 'Connected';
+    } catch(_) {
+      document.getElementById('connDot').className  = 'conn-dot off';
+      document.getElementById('connLbl').textContent = 'Offline';
+    }
+  }, 5000);
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function shortAddr(addr) {
+  return (!addr || addr.length < 12) ? addr : addr.slice(0,8) + '…' + addr.slice(-6);
+}
+function typeLabel(t) {
+  return ({ sensor_node:'Sensor Node', raspberry_pi:'Raspberry Pi',
+            jetson:'NVIDIA Jetson', cloud:'Cloud VM', workstation:'Workstation' })[t] || t;
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────
+init().then(() => {
+  document.getElementById('connDot').className  = 'conn-dot on';
+  document.getElementById('connLbl').textContent = 'Connected';
+}).catch(() => {
+  document.getElementById('connDot').className  = 'conn-dot off';
+  document.getElementById('connLbl').textContent = 'Offline';
+});
+</script>
+</body>
+</html>
