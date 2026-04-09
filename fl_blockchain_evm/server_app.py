@@ -24,14 +24,9 @@ G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
 SC_LABELS = [
-<<<<<<< HEAD
     'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
     'WAIST_BENDS', 'ARM_ELEVATION', 'KNEES_BENDING',
     'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
-=======
-    'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING', 'WAIST_BEND',
-    'ARM_ELEVATION', 'CROUCHING', 'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
->>>>>>> e732c25bb06ca7f3b2673fb723922b0d441af05b
 ]
 
 _blockchain = FLBlockchain()
