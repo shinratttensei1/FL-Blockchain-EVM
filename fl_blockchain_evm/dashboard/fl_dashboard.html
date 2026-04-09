@@ -244,7 +244,7 @@ canvas#mchart { display: block; width: 100%; height: 100%; }
         </div>
       </div>
       <div class="card stat"><div class="slbl">Accuracy</div><div class="sval g" id="sAcc">—</div><div class="ssub">global model</div></div>
-      <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">6-activity</div></div>
+      <div class="card stat"><div class="slbl">F1 Macro</div><div class="sval" id="sF1">—</div><div class="ssub">12-activity</div></div>
       <div class="card stat"><div class="slbl">AUC Macro</div><div class="sval" id="sAUC">—</div><div class="ssub">ROC area</div></div>
       <div class="card stat"><div class="slbl">Chain Blocks</div><div class="sval a" id="sBlocks">—</div><div class="ssub">Base Sepolia</div></div>
       <div class="card stat"><div class="slbl">IPFS Pins</div><div class="sval" id="sPins" style="color:#7c3aed;">—</div><div class="ssub" id="sPinsSub">off-chain</div></div>
@@ -309,7 +309,7 @@ canvas#mchart { display: block; width: 100%; height: 100%; }
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────
 const API = '';
-const SC  = ['WALKING','WALK_UP','WALK_DN','SITTING','STANDING','LAYING'];
+const SC  = ['STANDING','SITTING','LYING','WALKING','CLIMB_ST','WAIST_BND','ARM_ELEV','KNEES_BND','CYCLING','JOGGING','RUNNING','JUMP_FB'];
 const N   = 10; // devices
 
 // ─────────────────────────────────────────────────────────────
@@ -1358,6 +1358,6 @@ fetch(`${API}/api/state`, { signal: controller.signal })
   .finally(() => {
     connect(); // Start SSE regardless of initial fetch result
   });
-</script>pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128
+</script>
 </body>
 </html>

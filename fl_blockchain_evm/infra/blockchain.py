@@ -109,6 +109,10 @@ class EVMBlockchain:
         # Nonce tracked manually so fire-and-wait works without collisions
         self._nonce: Optional[int] = None
 
+        # Local chain length counter — keeps us from re-querying the chain
+        # every round (each round writes exactly 3 blocks: LOCAL+VOTE+GLOBAL)
+        self._chain_length: int = chain_length
+
         # IPFS off-chain storage (optional — degrades gracefully)
         self._ipfs = None
         self._round_cids: Dict[int, Dict[str, str]] = {}
@@ -170,7 +174,7 @@ class EVMBlockchain:
 
         print(f"  [EVM] Waiting for confirmation...")
         receipt = self.w3.eth.wait_for_transaction_receipt(
-            tx_hash, timeout=600)
+            tx_hash, timeout=600, poll_latency=1.0)
         if receipt['status'] == 1:
             print(f"  [EVM] ✓ Confirmed in block {receipt['blockNumber']}")
             return receipt
@@ -181,14 +185,15 @@ class EVMBlockchain:
         """Block until all pending (fire-and-wait) transactions are confirmed."""
         if not self._pending:
             return
-        print(
-            f"  [EVM] Waiting for {len(self._pending)} pending transaction(s)...")
+        n = len(self._pending)
+        print(f"  [EVM] Waiting for {n} pending transaction(s)...")
         for tx_hash in self._pending:
             receipt = self.w3.eth.wait_for_transaction_receipt(
-                tx_hash, timeout=timeout)
+                tx_hash, timeout=timeout, poll_latency=1.0)
             if receipt['status'] != 1:
                 raise RuntimeError(f"Transaction failed: {receipt}")
             print(f"  [EVM] ✓ Confirmed in block {receipt['blockNumber']}")
+        self._chain_length += n   # update local counter
         self._pending.clear()
 
     # ─────────────────────────────────────────────────────────
@@ -389,13 +394,13 @@ class EVMBlockchain:
         return self.contract.functions.verifyChain().call()
 
     def get_chain_length(self) -> int:
-        return self.contract.functions.getBlockCount().call()
+        """Return cached chain length (updated after every wait_for_pending call)."""
+        return self._chain_length
 
     def get_round_summary(self, fl_round: int) -> Dict:
-        total_blocks = self.get_chain_length()
         return {
             "fl_round":     fl_round,
-            "total_blocks": total_blocks,
+            "total_blocks": self._chain_length,
         }
 
     def print_chain_summary(self):

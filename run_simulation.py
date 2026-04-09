@@ -13,11 +13,11 @@ def main():
     fl.simulation.run_simulation(
         server_app=server_app,
         client_app=client_app,
-        num_supernodes=10,
+        num_supernodes=8,
         backend_config={
             "client_resources": {
-                "num_cpus": 1,
-                "num_gpus": 0,
+                "num_cpus": 2,
+                "num_gpus": 0.0,
             }
         },
     )

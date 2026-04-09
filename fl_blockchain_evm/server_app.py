@@ -19,8 +19,11 @@ matplotlib.use('Agg')
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
-SC_LABELS = ['WALKING', 'WALKING_UPSTAIRS', 'WALKING_DOWNSTAIRS',
-             'SITTING', 'STANDING', 'LAYING']
+SC_LABELS = [
+    'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
+    'WAIST_BENDS', 'ARM_ELEVATION', 'KNEES_BENDING',
+    'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
+]
 
 _blockchain = FLBlockchain()
 
@@ -54,11 +57,11 @@ def global_evaluate(server_round, arrays, config=None):
     model.load_state_dict(arrays.to_torch_state_dict())
     model.to(dev)
 
-    _, testloader = load_data(0, 10, beta=0)
+    _, testloader = load_data(0, 8, beta=0)
     m = test_fn(model, testloader, dev)
 
     print(f"\n{Y}{'═'*60}{R}")
-    print(f"{Y}  [ROUND {server_round}] GLOBAL — 6 Activities{R}")
+    print(f"{Y}  [ROUND {server_round}] GLOBAL — 12 Activities (MHEALTH){R}")
     print(f"{Y}{'═'*60}{R}")
     for k in ["loss", "accuracy", "f1_macro", "f1_weighted",
               "precision_macro", "recall_macro", "specificity_macro", "auc_macro"]:
@@ -285,7 +288,7 @@ def main(grid: Grid, context: Context):
 
     ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
     print(f"\n{C}{'═'*60}")
-    print(f"  6 Activities: {', '.join(SC_NAMES)}")
+    print(f"  12 Activities (MHEALTH): {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
     print(f"  IPFS:       {ipfs_status}")

@@ -1,110 +1,143 @@
-"""UCI-HAR data loading, caching, balancing, and augmentation.
+"""MHEALTH data loading, caching, balancing, and augmentation.
 
-Handles the full data pipeline from raw UCI Human Activity Recognition
-inertial signals to PyTorch DataLoaders with class-balanced sampling.
+Handles the full data pipeline from raw MHEALTH Mobile Health sensor logs
+to PyTorch DataLoaders with class-balanced sampling.
 
-Dataset: UCI Human Activity Recognition Using Smartphones (Anguita et al., 2013)
-- 30 subjects (21 train, 9 test), 6 activities
-- 9 inertial signal channels, 128 timesteps per window
-- Expected at: data/UCI HAR Dataset/
+Dataset: MHEALTH (Mobile Health) — Banos et al., 2014
+- 10 subjects, 12 physical activity classes + null class (label 0, excluded)
+- 23 sensor channels (chest acc, ECG x2, left-ankle acc/gyro/mag,
+  right-arm acc/gyro/mag), sampled at 50 Hz
+- Expected at: data/MHEALTHDATASET/mHealth_subject<N>.log
 
-FL partitioning: training subjects are split across clients by subject ID,
+FL partitioning: subjects are split across clients by subject ID,
 producing a realistic non-IID federated scenario.
+
+Sliding-window segmentation: 256-sample windows with 128-sample stride
+(≈ 5.12 s windows at 50 % overlap).
 """
 
 import os
-import urllib.request
-import zipfile
 from typing import Tuple
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 
-from fl_blockchain_evm.core.constants import NUM_CLASSES, SC_NAMES
+from fl_blockchain_evm.core.constants import (
+    NUM_CLASSES, NUM_CHANNELS, SC_NAMES, WINDOW_SIZE, WINDOW_STEP,
+)
 
+# ── Dataset location ──────────────────────────────────────────
+DATA_DIR = "data/MHEALTHDATASET"
 
-# ── Subject splits (per original dataset partition) ───────────
+# Pre-processed numpy cache (avoids slow re-parsing on every run)
+_NPY_CACHE_DIR = os.path.join(DATA_DIR, ".npy_cache")
 
-_TRAIN_SUBJECTS = [1, 3, 5, 6, 7, 8, 11, 14, 15, 16, 17,
-                   19, 21, 22, 23, 25, 26, 27, 28, 29, 30]
-_TEST_SUBJECTS  = [2, 4, 9, 10, 12, 13, 18, 20, 24]
-
-_SIGNAL_NAMES = [
-    "body_acc_x", "body_acc_y", "body_acc_z",
-    "body_gyro_x", "body_gyro_y", "body_gyro_z",
-    "total_acc_x", "total_acc_y", "total_acc_z",
-]
-
-DATA_DIR = "data/UCI HAR Dataset"
+# 8 subjects for training, 2 held out for testing
+_TRAIN_SUBJECTS = [1, 2, 3, 4, 5, 6, 7, 8]
+_TEST_SUBJECTS  = [9, 10]
 
 _CACHE: dict = {}
 
 
-# ── Dataset download ─────────────────────────────────────────
+# ── Raw file loading ──────────────────────────────────────────
 
-_UCI_HAR_URL = (
-    "https://archive.ics.uci.edu/ml/machine-learning-databases"
-    "/00240/UCI%20HAR%20Dataset.zip"
-)
-_SENTINEL = os.path.join(DATA_DIR, "train", "y_train.txt")
+def _load_subject(subject_id: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Load raw sensor data for one subject.
 
-
-def _ensure_dataset():
-    """Download and unzip UCI-HAR if not already present."""
-    if os.path.exists(_SENTINEL):
-        return
-
-    os.makedirs("data", exist_ok=True)
-    zip_path = "data/UCI_HAR_Dataset.zip"
-
-    print(f"  [UCI-HAR] Dataset not found. Downloading from UCI repository ...")
-    urllib.request.urlretrieve(_UCI_HAR_URL, zip_path)
-    print(f"  [UCI-HAR] Extracting to data/ ...")
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall("data")
-    os.remove(zip_path)
-    print(f"  [UCI-HAR] Dataset ready at {DATA_DIR}")
-
-
-# ── Raw data loading ──────────────────────────────────────────
-
-def _load_raw(split: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Load inertial signals, 0-indexed labels, and subject IDs for one split.
+    Uses a .npy disk cache for fast reloads after the first run.
+    pandas.read_csv is used for the initial parse (10-50x faster than
+    np.loadtxt on files this size).
 
     Returns:
-        X:        (N, 9, 128) float32 — raw inertial channels
-        y:        (N,) int32  — activity labels, 0-indexed (0=WALKING … 5=LAYING)
-        subjects: (N,) int32  — subject IDs (1-30)
+        data:   (T, 23) float32 -- raw sensor readings
+        labels: (T,)   int32   -- per-sample activity label
     """
-    base    = os.path.join(DATA_DIR, split)
-    sig_dir = os.path.join(base, "Inertial Signals")
+    cache_data   = os.path.join(_NPY_CACHE_DIR, f"s{subject_id}_data.npy")
+    cache_labels = os.path.join(_NPY_CACHE_DIR, f"s{subject_id}_labels.npy")
 
-    channels = []
-    for name in _SIGNAL_NAMES:
-        path = os.path.join(sig_dir, f"{name}_{split}.txt")
-        channels.append(np.loadtxt(path, dtype=np.float32))  # (N, 128)
-    X = np.stack(channels, axis=1)  # (N, 9, 128)
+    if os.path.exists(cache_data) and os.path.exists(cache_labels):
+        return np.load(cache_data), np.load(cache_labels)
 
-    y        = np.loadtxt(os.path.join(base, f"y_{split}.txt"),
-                          dtype=np.int32) - 1          # convert 1-6 → 0-5
-    subjects = np.loadtxt(os.path.join(base, f"subject_{split}.txt"),
-                          dtype=np.int32)
-    return X, y, subjects
+    path = os.path.join(DATA_DIR, f"mHealth_subject{subject_id}.log")
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"MHEALTH subject file not found: {path}\n"
+            f"Please place the MHEALTHDATASET folder in {DATA_DIR}"
+        )
+
+    # pandas.read_csv is 10-50x faster than np.loadtxt for large text files
+    print(f"  [MHEALTH] Parsing subject {subject_id} (first run — building cache)...")
+    df     = pd.read_csv(path, header=None, sep=r"\s+", dtype=np.float32)
+    raw    = df.values           # (T, 24)
+    data   = raw[:, :23]
+    labels = raw[:, 23].astype(np.int32)
+
+    os.makedirs(_NPY_CACHE_DIR, exist_ok=True)
+    np.save(cache_data,   data)
+    np.save(cache_labels, labels)
+    return data, labels
+
+
+def _sliding_windows(data: np.ndarray, labels: np.ndarray,
+                     win: int, step: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply a sliding window over continuous sensor data.
+
+    Windows where the majority label is the null class (0) are discarded.
+
+    Returns:
+        X: (N, C, win) float32 -- windowed sensor channels
+        y: (N,)        int32   -- majority label for each window (0-indexed)
+    """
+    T, C = data.shape
+    X_wins, y_wins = [], []
+    for start in range(0, T - win + 1, step):
+        w_data   = data[start:start + win]       # (win, C)
+        w_labels = labels[start:start + win]     # (win,)
+        counts   = np.bincount(w_labels, minlength=13)
+        majority = int(np.argmax(counts))
+        if majority == 0:
+            continue  # skip null-class windows
+        X_wins.append(w_data.T)           # (C, win)
+        y_wins.append(majority - 1)       # convert 1-12 -> 0-11
+
+    if not X_wins:
+        return np.empty((0, C, win), dtype=np.float32), np.empty((0,), dtype=np.int32)
+    return np.stack(X_wins).astype(np.float32), np.array(y_wins, dtype=np.int32)
+
+
+def _load_subjects(subject_ids: list) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load, window, and concatenate data for a list of subjects.
+
+    Returns:
+        X:        (N, 23, win) float32
+        y:        (N,) int32  -- 0-indexed labels
+        subjects: (N,) int32  -- subject IDs
+    """
+    Xs, ys, ss = [], [], []
+    for sid in subject_ids:
+        data, labels = _load_subject(sid)
+        X_w, y_w     = _sliding_windows(data, labels, WINDOW_SIZE, WINDOW_STEP)
+        if len(X_w) == 0:
+            continue
+        Xs.append(X_w)
+        ys.append(y_w)
+        ss.append(np.full(len(X_w), sid, dtype=np.int32))
+    return (np.concatenate(Xs), np.concatenate(ys), np.concatenate(ss))
 
 
 def _get_data():
-    """Load and cache both train and test splits."""
+    """Load and cache train/test splits."""
     if "all" not in _CACHE:
-        _ensure_dataset()
-        print(f"  [UCI-HAR] Loading from {DATA_DIR} ...")
-        X_tr, y_tr, s_tr = _load_raw("train")
-        X_te, y_te, s_te = _load_raw("test")
+        print(f"  [MHEALTH] Loading from {DATA_DIR} ...")
+        X_tr, y_tr, s_tr = _load_subjects(_TRAIN_SUBJECTS)
+        X_te, y_te, s_te = _load_subjects(_TEST_SUBJECTS)
         _CACHE["all"] = (X_tr, y_tr, s_tr, X_te, y_te, s_te)
-        print(f"  [UCI-HAR] Train: {len(X_tr)} samples | "
-              f"Test: {len(X_te)} samples | "
-              f"Channels: 9 | Timesteps: 128")
+        print(f"  [MHEALTH] Train: {len(X_tr)} windows | "
+              f"Test: {len(X_te)} windows | "
+              f"Channels: {NUM_CHANNELS} | Window: {WINDOW_SIZE} samples")
     return _CACHE["all"]
 
 
@@ -116,10 +149,9 @@ def _balance_ros_rus(X: np.ndarray, y: np.ndarray, beta: float = 1.0):
     y is one-hot (N, C). For each class:
       - Under-represented (count < target): oversample (ROS)
       - Over-represented  (count > target): undersample (RUS)
-    Target = m_s + (m_l - m_s) * beta  [beta=1.0 → full equalization]
+    Target = m_s + (m_l - m_s) * beta  [beta=1.0 -> full equalization]
     """
-    counts  = y.sum(0).astype(int)
-    primary = np.argmax(y, axis=1)  # safe for single-label one-hot
+    primary = np.argmax(y, axis=1)
 
     pc_counts = np.array([np.sum(primary == c) for c in range(NUM_CLASSES)])
     active    = pc_counts[pc_counts > 0]
@@ -130,7 +162,7 @@ def _balance_ros_rus(X: np.ndarray, y: np.ndarray, beta: float = 1.0):
     m_l, m_s = int(active.max()), int(active.min())
     target   = int(m_s + (m_l - m_s) * beta)
 
-    print(f"  [ROS+RUS] m_l={m_l}, m_s={m_s}, β={beta}, target={target}")
+    print(f"  [ROS+RUS] m_l={m_l}, m_s={m_s}, beta={beta}, target={target}")
     print(f"  [ROS+RUS] Before: {dict(zip(SC_NAMES, pc_counts))}")
 
     bX, by = [], []
@@ -186,15 +218,15 @@ def _augment(x: torch.Tensor) -> torch.Tensor:
 # ── DataLoader construction ───────────────────────────────────
 
 def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
-              batch_size: int = 128) -> Tuple[DataLoader, DataLoader]:
+              batch_size: int = 64) -> Tuple[DataLoader, DataLoader]:
     """Build train/test DataLoaders for one FL client partition.
 
     Training data is partitioned by subject ID (non-IID), giving each
-    client data from a disjoint set of subjects. Test data is shared
-    across all clients (global test set).
+    client data from a disjoint set of subjects. Test data (subjects 9-10)
+    is shared across all clients.
 
     Args:
-        partition_id:    Client index (0 … num_partitions-1).
+        partition_id:    Client index (0 ... num_partitions-1).
         num_partitions:  Total number of FL clients.
         beta:            ROS+RUS balance strength (0=no balancing, 1=full).
         batch_size:      DataLoader batch size.
@@ -214,18 +246,18 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     X_part = X_tr[my_idx].copy()
     y_part = y_tr[my_idx].copy()
 
-    print(f"  [UCI-HAR] Partition {partition_id}: "
-          f"subjects={sorted(my_subjects)}, samples={len(X_part)}")
+    print(f"  [MHEALTH] Partition {partition_id}: "
+          f"subjects={sorted(my_subjects)}, windows={len(X_part)}")
 
     # Z-score normalize per channel using partition train statistics
-    mu         = X_part.mean(axis=(0, 2), keepdims=True)
-    sd         = X_part.std(axis=(0, 2), keepdims=True) + 1e-8
-    X_part_n   = (X_part - mu) / sd
-    X_te_n     = (X_te   - mu) / sd
+    mu       = X_part.mean(axis=(0, 2), keepdims=True)
+    sd       = X_part.std(axis=(0, 2), keepdims=True) + 1e-8
+    X_part_n = (X_part - mu) / sd
+    X_te_n   = (X_te   - mu) / sd
 
     # One-hot encode labels
-    y_part_oh = np.eye(NUM_CLASSES, dtype=np.float32)[y_part]  # (N, 6)
-    y_te_oh   = np.eye(NUM_CLASSES, dtype=np.float32)[y_te]    # (M, 6)
+    y_part_oh = np.eye(NUM_CLASSES, dtype=np.float32)[y_part]   # (N, 12)
+    y_te_oh   = np.eye(NUM_CLASSES, dtype=np.float32)[y_te]     # (M, 12)
 
     if beta > 0:
         X_part_n, y_part_oh = _balance_ros_rus(X_part_n, y_part_oh, beta=beta)

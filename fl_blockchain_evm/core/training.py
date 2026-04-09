@@ -1,9 +1,9 @@
-"""Training and evaluation functions for the UCI-HAR activity model.
+"""Training and evaluation functions for the MHEALTH activity model.
 
 Contains the train loop (with FocalLoss, Mixup, cosine LR schedule)
 and the single-label evaluation function with per-class metrics.
 
-Labels are one-hot encoded (N, 6) throughout the pipeline for
+Labels are one-hot encoded (N, 12) throughout the pipeline for
 compatibility with FocalLoss and the balancing utilities.
 """
 
