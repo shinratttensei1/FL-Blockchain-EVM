@@ -41,7 +41,7 @@ sudo apt install -y \
 echo ""
 echo "[3/6] Creating Python virtual environment..."
 cd "$PROJECT_ROOT"
-python3.11 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 
 echo ""
