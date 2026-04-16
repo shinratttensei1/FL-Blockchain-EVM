@@ -29,7 +29,21 @@ SC_LABELS = [
     'CYCLING', 'JOGGING', 'RUNNING', 'JUMP_FRONT_BACK',
 ]
 
-_blockchain = FLBlockchain()
+# Blockchain is only initialized on server, not on clients
+# This prevents crashes when blockchain credentials are missing
+_blockchain = None
+
+def _init_blockchain():
+    """Initialize blockchain only once, on first use."""
+    global _blockchain
+    if _blockchain is None:
+        try:
+            _blockchain = FLBlockchain()
+        except (ValueError, ConnectionError) as e:
+            print(f"\n{Y}[WARNING] Blockchain unavailable: {e}{R}")
+            print(f"{Y}Continuing without blockchain recording...{R}\n")
+            _blockchain = None
+    return _blockchain
 
 _round_state: Dict = {
     "train_results":  [],
@@ -81,28 +95,42 @@ def global_evaluate(server_round, arrays, config=None):
     _plot_cm(m["confusion_matrix"], server_round, m["accuracy"], m["f1_macro"])
 
     num_clients = len(_round_state["train_results"])
-    _blockchain.add_global_model_block(
-        fl_round=server_round,
-        model_state_dict=arrays.to_torch_state_dict(),
-        accuracy=m["accuracy"],
-        f1_macro=m["f1_macro"],
-        auc_macro=m["auc_macro"],
-        loss=m["loss"],
-        num_clients=num_clients,
-    )
+
+    bc = _init_blockchain()
+    if bc is not None:
+        bc.add_global_model_block(
+            fl_round=server_round,
+            model_state_dict=arrays.to_torch_state_dict(),
+            accuracy=m["accuracy"],
+            f1_macro=m["f1_macro"],
+            auc_macro=m["auc_macro"],
+            loss=m["loss"],
+            num_clients=num_clients,
+        )
+
+        chain_length = bc.get_chain_length()
+        chain_valid = bc.verify_chain()
+
+        summary = bc.get_round_summary(server_round)
+        print(f"\n{C}  [BLOCKCHAIN] Round {server_round} complete — "
+              f"3 blocks written (LOCAL + VOTE + GLOBAL) | "
+              f"Chain length: {summary['total_blocks']}{R}")
+    else:
+        chain_length = 0
+        chain_valid = None
+        print(f"\n{Y}  [BLOCKCHAIN] Skipped (not configured){R}")
 
     _round_state["train_results"] = []
 
-    chain_length = _blockchain.get_chain_length()
-    chain_valid = _blockchain.verify_chain()
-
-    summary = _blockchain.get_round_summary(server_round)
-    print(f"\n{C}  [BLOCKCHAIN] Round {server_round} complete — "
-          f"3 blocks written (LOCAL + VOTE + GLOBAL) | "
-          f"Chain length: {summary['total_blocks']}{R}")
-
     # ── Live state update ──
     live_state.round_complete(server_round, m, chain_length, chain_valid)
+
+    # ── Include IPFS CIDs if available ──
+    round_cids = None
+    if bc is not None:
+        round_cids = bc.get_round_cids(server_round)
+        if round_cids:
+            live_state.ipfs_pinned(server_round, round_cids)
 
     log = {k: m[k] for k in [
         "loss", "accuracy", "f1_macro", "f1_weighted",
@@ -117,13 +145,11 @@ def global_evaluate(server_round, arrays, config=None):
         "timestamp":           datetime.now().isoformat(),
         "superclass_names":    SC_NAMES,
         "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * NUM_CLASSES),
-        "blockchain_blocks":   summary["total_blocks"],
+        "blockchain_blocks":   chain_length if bc is not None else 0,
     })
-    # Include IPFS CIDs if available
-    round_cids = _blockchain.get_round_cids(server_round)
+    # Include IPFS CIDs if available (already handled above)
     if round_cids:
         log["ipfs_cids"] = round_cids
-        live_state.ipfs_pinned(server_round, round_cids)
     with open("outputs/results.json", "a") as f:
         json.dump(log, f)
         f.write("\n")
@@ -180,16 +206,25 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     print(f"  Loss  mean={loss_mean:.4f}  std={loss_std:.4f}  "
           f"threshold={threshold:.4f}")
 
-    print(f"\n{C}  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round {rnd} "
-          f"(async)...{R}")
+    bc = _init_blockchain()
+    if bc is not None:
+        print(f"\n{C}  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round {rnd} "
+              f"(async)...{R}")
 
-    votes = _blockchain.add_round_summary_block(
-        fl_round=rnd,
-        clients=data,
-        loss_mean=loss_mean,
-        loss_std=loss_std,
-        threshold=threshold,
-    )
+        votes = bc.add_round_summary_block(
+            fl_round=rnd,
+            clients=data,
+            loss_mean=loss_mean,
+            loss_std=loss_std,
+            threshold=threshold,
+        )
+    else:
+        print(f"\n{Y}  [BLOCKCHAIN] Skipped (not configured){R}")
+        votes = [{
+            "client_id": d["client_id"],
+            "loss": d["train_loss"],
+            "vote": "ACCEPT",
+        } for d in data]
 
     print_table(
         ["Device", "Loss", "Verdict"],
@@ -280,8 +315,12 @@ def main(grid: Grid, context: Context):
     if os.path.exists("outputs/results.json"):
         os.remove("outputs/results.json")
 
+    # ── Init blockchain ──
+    bc = _init_blockchain()
+    contract_address = bc.contract_address if bc is not None else "not-configured"
+
     # ── Init live state ──
-    live_state.init(num_rounds, _blockchain.contract_address)
+    live_state.init(num_rounds, contract_address)
 
     model = Net()
     strategy = MedicalFedAvg(
@@ -290,7 +329,7 @@ def main(grid: Grid, context: Context):
         evaluate_metrics_aggr_fn=weighted_average,
     )
 
-    ipfs_status = "enabled" if _blockchain.ipfs_enabled else "disabled"
+    ipfs_status = "enabled" if (bc is not None and bc.ipfs_enabled) else "disabled"
     print(f"\n{C}{'═'*60}")
     print(f"  12 Activities (MHEALTH): {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")

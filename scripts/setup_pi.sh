@@ -25,11 +25,12 @@ sudo apt upgrade -y
 
 echo ""
 echo "[2/6] Installing system dependencies..."
+# Install the version native to Trixie
 sudo apt install -y \
     build-essential \
-    python3.11 \
-    python3.11-venv \
-    python3.11-dev \
+    python3 \
+    python3-venv \
+    python3-dev \
     libopenblas-dev \
     libblas-dev \
     liblapack-dev \
