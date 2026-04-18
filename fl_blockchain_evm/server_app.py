@@ -23,6 +23,31 @@ from fl_blockchain_evm.utils import get_device, print_table
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
 os.makedirs("outputs", exist_ok=True)
 
+# Tee all stdout/stderr to outputs/fl_server.log so every print is persisted
+import sys as _sys
+import io as _io
+
+class _Tee(_io.TextIOBase):
+    """Write to both the original stream and a log file simultaneously."""
+    def __init__(self, original, logpath):
+        self._orig = original
+        self._log  = open(logpath, "a", buffering=1, encoding="utf-8")
+    def write(self, s):
+        self._orig.write(s)
+        self._orig.flush()
+        try:
+            self._log.write(s)
+            self._log.flush()
+        except Exception:
+            pass
+        return len(s)
+    def flush(self):
+        self._orig.flush()
+
+_LOG_PATH = "outputs/fl_server.log"
+_sys.stdout = _Tee(_sys.stdout, _LOG_PATH)
+_sys.stderr = _Tee(_sys.stderr, _LOG_PATH)
+
 SC_LABELS = [
     'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
     'WAIST_BENDS', 'ARM_ELEVATION', 'KNEES_BENDING',
@@ -308,9 +333,10 @@ app = ServerApp()
 
 @app.main()
 def main(grid: Grid, context: Context):
-    lr = context.run_config.get("lr", 0.002)
-    num_rounds = int(context.run_config.get("num-server-rounds", 10))
-    frac = float(context.run_config.get("fraction-train", 1.0))
+    # run_config from pyproject.toml; env vars as fallback for flower-server-app direct use
+    lr         = float(context.run_config.get("lr",               os.getenv("LR",           "0.002")))
+    num_rounds = int(  context.run_config.get("num-server-rounds", os.getenv("NUM_ROUNDS",   "10")))
+    frac       = float(context.run_config.get("fraction-train",    os.getenv("FRACTION_TRAIN","1.0")))
 
     if os.path.exists("outputs/results.json"):
         os.remove("outputs/results.json")

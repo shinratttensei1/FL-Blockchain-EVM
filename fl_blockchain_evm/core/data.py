@@ -30,7 +30,15 @@ from fl_blockchain_evm.core.constants import (
 )
 
 # ── Dataset location ──────────────────────────────────────────
-DATA_DIR = "data/MHEALTHDATASET"
+# FL_DATA_DIR env var lets the path be set explicitly at runtime
+# (needed when Flower extracts the FAB to a temp dir on SuperNodes).
+# Fallback: absolute path relative to this module's location so it
+# works when the package is installed in-place on the laptop/Pi.
+_MODULE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.environ.get(
+    "FL_DATA_DIR",
+    os.path.join(_MODULE_ROOT, "data", "MHEALTHDATASET"),
+)
 
 # Pre-processed numpy cache (avoids slow re-parsing on every run)
 _NPY_CACHE_DIR = os.path.join(DATA_DIR, ".npy_cache")

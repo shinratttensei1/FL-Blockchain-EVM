@@ -1,19 +1,10 @@
-# Lightweight requirements for Raspberry Pi (CPU only, no GPU/CUDA)
+# Raspberry Pi 4 — CPU-only, ARM64
 # Install with: pip install -r requirements-pi.txt
 
-# Core ML/DL (Pi-optimized, CPU-only)
+flwr>=1.23.0
+torch==2.7.1
 numpy>=1.24.0
-torch==2.7.1  # CPU-only, pre-built for ARM
 pandas>=2.0.0
 scikit-learn>=1.3.0
-
-# Federated Learning (Flower)
-flwr>=1.6.0
-
-# Utilities
 python-dotenv>=1.0.0
 requests>=2.31.0
-
-# Visualization (optional, only needed on server)
-# matplotlib>=3.7.0
-# seaborn>=0.13.0

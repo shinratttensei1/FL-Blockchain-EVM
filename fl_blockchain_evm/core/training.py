@@ -27,6 +27,12 @@ def _class_weights(loader):
     return (freqs.median() / freqs).clamp(0.5, 20.0)
 
 
+def _ts():
+    """Current timestamp string for log lines."""
+    import datetime
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
           use_mixup=True, mixup_alpha=0.3):
     net.to(device).train()
@@ -36,6 +42,7 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
 
     total_steps = epochs * len(trainloader)
     warmup      = max(total_steps // 10, 1)
+    n_batches   = len(trainloader)
 
     def lr_fn(step):
         if step < warmup:
@@ -45,10 +52,18 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
 
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_fn)
 
+    print(f"[{_ts()}] [TRAIN] Starting: epochs={epochs}  "
+          f"batches/epoch={n_batches}  lr={lr:.4f}  "
+          f"device={device}  mixup={use_mixup}")
+
     losses, total_n, t0 = [], 0, time.time()
-    for _ in range(epochs):
+    global_step = 0
+
+    for ep in range(epochs):
         ep_loss, nb = 0.0, 0
-        for x, y in trainloader:
+        ep_t0 = time.time()
+
+        for batch_idx, (x, y) in enumerate(trainloader):
             x, y = x.to(device), y.to(device)
             x = _augment(x)
 
@@ -56,7 +71,7 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
                 lam = max(np.random.beta(mixup_alpha, mixup_alpha), 0.5)
                 idx = torch.randperm(x.size(0), device=x.device)
                 x   = lam * x + (1 - lam) * x[idx]
-                y   = lam * y + (1 - lam) * y[idx]  # soft one-hot labels
+                y   = lam * y + (1 - lam) * y[idx]
 
             opt.zero_grad()
             loss = criterion(net(x), y)
@@ -64,17 +79,48 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
             nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
             sched.step()
-            ep_loss += loss.item()
-            nb      += 1
-            total_n += x.size(0)
-        losses.append(ep_loss / max(nb, 1))
+            ep_loss  += loss.item()
+            nb       += 1
+            total_n  += x.size(0)
+            global_step += 1
+
+            # Log batch progress at 0%, 25%, 50%, 75%, 100%
+            checkpoints = {0, n_batches // 4, n_batches // 2,
+                           3 * n_batches // 4, n_batches - 1}
+            if batch_idx in checkpoints:
+                pct = int(100 * (batch_idx + 1) / n_batches)
+                cur_lr = opt.param_groups[0]["lr"]
+                print(f"[{_ts()}] [TRAIN]   ep {ep+1:3d}/{epochs}  "
+                      f"batch {batch_idx+1:4d}/{n_batches}  "
+                      f"({pct:3d}%)  "
+                      f"loss={ep_loss / max(nb, 1):.5f}  "
+                      f"lr={cur_lr:.6f}")
+
+        ep_loss_avg = ep_loss / max(nb, 1)
+        ep_elapsed  = time.time() - ep_t0
+        losses.append(ep_loss_avg)
+
+        print(f"[{_ts()}] [TRAIN] ── Epoch {ep+1:3d}/{epochs} complete ──  "
+              f"loss={ep_loss_avg:.5f}  "
+              f"samples={total_n:,}  "
+              f"time={ep_elapsed:.1f}s  "
+              f"({ep_elapsed/max(nb,1)*1000:.1f}ms/batch)")
+
+    total_time = round(time.time() - t0, 2)
+    print(f"[{_ts()}] [TRAIN] ══ Training complete ══  "
+          f"epochs={epochs}  "
+          f"total_samples={total_n:,}  "
+          f"total_time={total_time}s  "
+          f"loss_first={losses[0]:.5f}  "
+          f"loss_last={losses[-1]:.5f}  "
+          f"improvement={losses[0]-losses[-1]:.5f}")
 
     return {
         "train_loss":              losses[-1] if losses else 0.0,
         "train_loss_first_epoch":  losses[0]  if losses else 0.0,
         "train_loss_last_epoch":   losses[-1] if losses else 0.0,
         "total_samples_processed": total_n,
-        "training_time_seconds":   round(time.time() - t0, 2),
+        "training_time_seconds":   total_time,
         "num_epochs":              epochs,
     }
 
