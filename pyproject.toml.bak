@@ -74,3 +74,10 @@ batch-size = 256
 # [tool.flwr.federations.remote-federation]
 # address = "192.168.0.188:9093"
 # insecure = true
+
+[tool.flwr.federations]
+default = "remote-federation"
+
+[tool.flwr.federations.remote-federation]
+address = "192.168.0.223:9093"
+insecure = true

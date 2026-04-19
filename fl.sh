@@ -344,13 +344,33 @@ PIRUN
     sleep 15
 
     local connected
-    connected=$(grep -c "New node\|registered\|supernode" "$LOG_DIR/superlink.log" 2>/dev/null || echo 0)
+    connected=$(grep -Eic "New node|registered|activate|pullmessages|supernode" "$LOG_DIR/superlink.log" 2>/dev/null || true)
+    connected="${connected:-0}"
     [ "$connected" -ge 1 ] \
         && info "  ✓ SuperLink reports activity (connections detected)" \
         || warn "  No connection events yet in SuperLink log — SuperNodes may still be connecting"
 
     # ── 4. Run training ──────────────────────────────────────
     step "4/4  FL Training  (flwr run)"
+
+    if ! grep -q '^\[tool\.flwr\.federations\]' pyproject.toml; then
+        cat >> pyproject.toml << 'EOF'
+
+[tool.flwr.federations]
+default = "remote-federation"
+EOF
+        info "  pyproject.toml → added [tool.flwr.federations]"
+    fi
+
+    if ! grep -q '^\[tool\.flwr\.federations\.remote-federation\]' pyproject.toml; then
+        cat >> pyproject.toml << EOF
+
+[tool.flwr.federations.remote-federation]
+address = "${SRV_IP}:${SL_CONTROL_PORT}"
+insecure = true
+EOF
+        info "  pyproject.toml → added [tool.flwr.federations.remote-federation]"
+    fi
 
     # Update ~/.flwr/config.toml remote-federation address (Flower 1.29+)
     local flwr_cfg="$HOME/.flwr/config.toml"
@@ -369,12 +389,13 @@ with open(cfg_path, 'w') as f:
     f.write(content)
 PY
         info "  ~/.flwr/config.toml → remote-federation.address = ${SRV_IP}:${SL_CONTROL_PORT}"
-    else
-        sed -i.bak \
-            "s|^address = \".*\"|address = \"${SRV_IP}:${SL_CONTROL_PORT}\"|" \
-            pyproject.toml
-        info "  pyproject.toml → remote-federation.address = ${SRV_IP}:${SL_CONTROL_PORT}"
     fi
+
+    sed -i.bak \
+        -e "/^\[tool\.flwr\.federations\.remote-federation\]/,/^\[/ s|^address = \".*\"|address = \"${SRV_IP}:${SL_CONTROL_PORT}\"|" \
+        -e "/^\[tool\.flwr\.federations\.remote-federation\]/,/^\[/ s|^insecure = .*|insecure = true|" \
+        pyproject.toml
+    info "  pyproject.toml → remote-federation.address = ${SRV_IP}:${SL_CONTROL_PORT}"
 
     # Update [tool.flwr.app.config]
     sed -i.bak \

@@ -27,7 +27,7 @@ def main() -> None:
         import uvicorn
         from fl_blockchain_evm.management.server import app
 
-        uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)
+        uvicorn.run(app, host="0.0.0.0", port=8081, reload=False)
     except ImportError as exc:
         print(f"\nImport error: {exc}")
         print("\nInstall missing packages:")
