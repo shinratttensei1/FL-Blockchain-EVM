@@ -1,6 +1,6 @@
-# Blockchain-Based Federated Learning for ECG Superclass Classification
+# Blockchain-Based Federated Learning for Human Activity Recognition
 
-> **Course project** — Federated learning over the mHealth dataset with an Base mainnet smart-contract ledger for auditability and tamper-proof model tracking.
+> Federated learning over the **MHEALTH** dataset, deployed across Raspberry Pi 4 edge devices, with a Base mainnet (Ethereum L2) smart-contract ledger for tamper-proof audit of every training round.
 
 ---
 
@@ -22,27 +22,31 @@
 8. [Setup & Installation](#setup--installation)
 9. [Configuration](#configuration)
 10. [Launching the Experiment](#launching-the-experiment)
-11. [Outputs](#outputs)
-12. [Smart Contract](#smart-contract)
-13. [Limitations & Future Work](#limitations--future-work)
+11. [Outputs & Results](#outputs--results)
+12. [Blockchain Middleware Optimisation](#blockchain-middleware-optimisation)
+13. [Smart Contract](#smart-contract)
+14. [Limitations & Future Work](#limitations--future-work)
 
 ---
 
 ## Overview
 
-This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Base main testnet) via a custom Solidity smart contract.
+This project implements a **federated learning (FL) system** for wearable-sensor human activity recognition (HAR) that records every training event — local model updates, voting decisions, and aggregated global models — to the **Base mainnet** (Ethereum L2) via a custom Solidity smart contract.
 
-**Clinical task:** Classify each ECG recording into one or more of **5 superclasses** defined by the PTB-XL standard:
+**Task:** Classify 23-channel inertial sensor data (accelerometer + gyroscope + magnetometer on chest, right wrist, left ankle) into **12 activities** from the MHEALTH benchmark:
 
-| Code | Superclass | Example diagnoses |
-|------|-----------|-------------------|
-| NORM | Normal | — |
-| MI | Myocardial Infarction | IMI, AMI, ASMI … |
-| STTC | ST/T-Change | NDT, ISC\_, ISCAL … |
-| CD | Conduction Disturbance | LBBB, RBBB, WPW … |
-| HYP | Hypertrophy | LVH, RVH … |
+| # | Activity | # | Activity |
+|---|---|---|---|
+| 1 | Standing still | 7 | Frontal elevation of arms |
+| 2 | Sitting and relaxing | 8 | Knees bending (crouching) |
+| 3 | Lying down | 9 | Cycling |
+| 4 | Walking | 10 | Jogging |
+| 5 | Climbing stairs | 11 | Running |
+| 6 | Waist bends forward | 12 | Jump front & back |
 
-The dataset is partitioned across **10 simulated clients**, each training a local model on its own shard. A central server aggregates the models each round, evaluates the global model, and writes an immutable summary to the blockchain.
+**10 subjects** participate in the federation: subjects 1–8 train on **8 Raspberry Pi 4 edge devices** (one subject per device), while subjects 9–10 form a held-out test set evaluated only by the central server. A central server aggregates the models each round, evaluates the global model on the held-out test, and writes an immutable summary to the blockchain.
+
+**Achieved results (10 rounds):** peak accuracy **91.6%**, macro-F1 **91.7%**, macro-AUC **99.7%** at round 7.
 
 ---
 
@@ -71,8 +75,8 @@ flowchart TD
 
     subgraph ON_CHAIN ["Blockchain Layer"]
         EVM_BRIDGE["blockchain.py (Web3.py)"]
-        CONTRACT["SimpleFLBlockchain (Solidity)"]
-        NETWORK_TAGP["Base main Testnet"]
+        CONTRACT["FLBlockchain (Solidity)"]
+        NETWORK_TAGP["Base Mainnet (L2)"]
     end
 
     SERVER ---->|"Pin Model + Metrics"| IPFS_BRIDGE
@@ -89,33 +93,49 @@ flowchart TD
 
 ```
 fl_blockchain_evm/
-├── task.py                  # Dataset, model definition, train/test logic
-├── client_app.py            # Flower client (train + evaluate handlers)
-├── server_app.py            # Flower server (aggregation, evaluation, blockchain writes)
-├── blockchain.py            # Web3 wrapper for the smart contract
-├── ipfs_storage.py          # IPFS off-chain storage (Pinata/kubo/web3.storage)
-├── priority_strategy.py     # MedicalFedAvg — equal-weight aggregation strategy
-├── live_state.py            # Thread-safe state container for dashboard streaming
+├── client_app.py            # Flower ClientApp (train + evaluate handlers)
+├── server_app.py            # Flower ServerApp (aggregation, evaluation, blockchain writes)
+├── task.py                  # Flower task helpers
+├── utils.py                 # Shared utilities
 │
-├── fl_dashboard_server.py   # FastAPI backend for live dashboard (REST + SSE)
-├── fl_dashboard.html        # Full dashboard — topology, metrics, blockchain, IPFS
-├── fl_topology.html         # Lightweight topology-only dashboard (legacy)
+├── core/
+│   ├── model.py             # SE-ResNet definition (920K params, 23-ch input, 12 classes)
+│   ├── data.py              # MHEALTH loader, windowing, subject partitioning
+│   ├── training.py          # train() / evaluate() functions
+│   └── constants.py         # Activity labels, dataset constants
 │
-├── SimpleFLBlockchain.sol   # Solidity smart contract (deployed via Remix IDE)
-├── FLBlockchain_abi.json    # ABI copied from Remix after deployment
+├── infra/
+│   ├── blockchain.py        # Web3 wrapper — fire-and-wait, PerfLogger, BLOCKCHAIN_OPTIMIZED
+│   └── ipfs_storage.py      # IPFS off-chain storage (Pinata backend)
 │
-├── data/
-│   └── ptb-xl/              # PTB-XL dataset (downloaded separately)
+├── strategy/
+│   └── medical_fedavg.py   # MedicalFedAvg — equal-weight FedAvg aggregation
 │
-├── outputs/                 # Auto-created at runtime
-│   ├── results.json         # Per-round training & evaluation metrics (JSONL)
-│   └── cm_round_N.png       # Confusion matrix plots per round
+├── dashboard/
+│   ├── server.py            # FastAPI backend (REST + SSE)
+│   ├── fl_dashboard.html    # Live dashboard (topology, metrics, blockchain, IPFS)
+│   └── state.py             # Thread-safe dashboard state container
 │
-├── final_model.pt           # Saved global model weights after all rounds
-│
-├── .env                     # Secrets (not committed)
-├── pyproject.toml           # Flower project config & hyperparameters
-└── README.md
+└── management/
+    ├── server.py            # Management API
+    ├── management.html      # Management UI
+    └── store.py             # Persistent state store
+
+contracts/
+├── FLBlockchain.sol         # Solidity smart contract (deployed via Remix IDE)
+└── FLBlockchain_abi.json    # ABI copied from Remix after deployment
+
+data/
+└── MHEALTHDATASET/          # MHEALTH dataset (downloaded separately — see Setup)
+
+outputs/                     # Auto-created at runtime
+├── results.json             # Per-round metrics (JSONL)
+├── perf_baseline_*.log      # Blockchain timing log (BLOCKCHAIN_OPTIMIZED=0)
+└── perf_optimized_*.log     # Blockchain timing log (BLOCKCHAIN_OPTIMIZED=1)
+
+final_model.pt               # Saved global model weights after all rounds
+pyproject.toml               # Flower project config & hyperparameters
+.env                         # Secrets (never commit this)
 ```
 
 ---
@@ -124,50 +144,43 @@ fl_blockchain_evm/
 
 ### The Model
 
-**`Net`** (`task.py`) is a 4-stage **SE-ResNet** (Squeeze-and-Excitation Residual Network) for 1-D time-series:
+**`Net`** (`fl_blockchain_evm/core/model.py`) is a 4-stage **SE-ResNet** (Squeeze-and-Excitation Residual Network) for 1-D time-series with **920,013 parameters**:
 
 ```
-Input: (B, 12, 1000)   — batch × 12 leads × 1000 time-steps @ 100 Hz
+Input: (B, 23, 256)   — batch × 23 sensor channels × 256 time-steps @ 50 Hz
   └─ InputBN
-  └─ Stage 1: Conv1d(12→32, k=15) → BN → ReLU → MaxPool(4) → 2× SEResBlock(32, k=7)
-  └─ Stage 2: Conv1d(32→64, k=7)  → BN → ReLU → MaxPool(4) → 2× SEResBlock(64, k=5)
-  └─ Stage 3: Conv1d(64→128, k=5) → BN → ReLU → MaxPool(2) → 2× SEResBlock(128, k=3)
-  └─ Stage 4: Conv1d(128→256, k=3)→ BN → ReLU → MaxPool(2) → 1× SEResBlock(256, k=3)
-  └─ GlobalAvgPool → Dropout(0.3) → Linear(256→5)
-Output: (B, 5) raw logits  — multi-label sigmoid classification
+  └─ Stage 1: Conv1d(23→64,  k=7) → BN → ReLU → MaxPool(2) → 2× SEResBlock(64,  k=7)
+  └─ Stage 2: Conv1d(64→128, k=5) → BN → ReLU → MaxPool(2) → 2× SEResBlock(128, k=5)
+  └─ Stage 3: Conv1d(128→256,k=3) → BN → ReLU → MaxPool(2) → 2× SEResBlock(256, k=3)
+  └─ Stage 4: Conv1d(256→512,k=3) → BN → ReLU → MaxPool(2) → 1× SEResBlock(512, k=3)
+  └─ GlobalAvgPool → Dropout(0.3) → Linear(512→12)
+Output: (B, 12) raw logits — 12-class softmax classification
 ```
 
-~200K parameters. The SE block applies per-channel attention after each residual pair.
+~920K parameters. The SE block applies per-channel attention (squeeze-and-excitation ratio=16) after each residual pair, helping the network focus on the most discriminative sensor channels.
 
-**Loss:** `FocalLoss` (γ=2, class-frequency alpha weights) — addresses the severe class imbalance in PTB-XL (NORM ≫ HYP/MI).
+**Loss:** `FocalLoss` (γ=2) — down-weights easy examples and focuses training on hard-to-classify activity transitions.
 
-**Optimizer:** `AdamW` with cosine-annealing LR schedule and a linear warm-up for the first 10% of steps.
+**Optimizer:** `AdamW` (lr=0.002) with cosine-annealing LR schedule and Mixup augmentation (α=0.3).
 
 **Training augmentations** (applied per mini-batch):
-- Gaussian noise (σ=0.05, p=0.8)
-- Per-lead amplitude scaling (×0.8–1.2, p=0.5)
-- Temporal shift (±30 samples, p=0.5)
-- Baseline wander (sinusoidal, p=0.3)
-- Mixup (α=0.3)
+- Mixup (α=0.3) — interpolates pairs of samples to improve generalisation
+- Gaussian noise (σ=0.02, p=0.5)
+- Per-channel amplitude scaling (×0.9–1.1, p=0.5)
 
 ### Data Pipeline
 
-PTB-XL uses the official 10-fold stratified split:
+The **MHEALTH dataset** (Banos et al., 2015) contains sensor recordings from 10 healthy subjects performing 12 physical activities. Each subject wears three inertial measurement units (IMU) on the chest, right wrist, and left ankle, providing 23 channels at 50 Hz.
 
-- **Folds 1–8** → training set (partitioned across clients)
-- **Folds 9–10** → held-out test set (used for global evaluation only)
+**Subject-based partitioning:**
+- **Subjects 1–8** → training federation (one per Raspberry Pi 4 device)
+- **Subjects 9–10** → held-out test set (514 windows, evaluated by server only)
 
-Each client receives a **sequential shard** of the shuffled training set (seed=42). Per-client z-score normalization is applied using that client's own training statistics.
+**Windowing:** each subject's time-series is segmented into **256-sample non-overlapping windows** (5.12 seconds at 50 Hz) with 50% stride during loading. Total: 2,065 training windows, 514 test windows.
 
-To address the multi-label class imbalance, each client applies **ROS+RUS** (Random Over/Under Sampling) before training:
+**Normalisation:** per-channel z-score using training statistics computed independently on each subject's data (no data leakage across partitions).
 
-```
-target = m_s + (m_l - m_s) × β      (β=1.0 → full equalization)
-```
-
-where `m_l` = largest class count, `m_s` = smallest class count. Under-represented classes are oversampled; over-represented classes are subsampled. A `WeightedRandomSampler` further reinforces balance during batching.
-
-**Threshold optimization:** At evaluation time, per-class thresholds are tuned over `[0.05, 0.95]` in 0.02 steps to maximize per-class F1 (rather than using a fixed 0.5).
+**Class balance:** the MHEALTH dataset is approximately balanced across activities within each subject. No over/under-sampling is required.
 
 ### Federated Learning Loop
 
@@ -251,7 +264,7 @@ assert ipfs.verify_content("QmXyz...", expected_sha256="abc123...")
 
 ## Live Dashboard
 
-The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a FastAPI backend (`fl_dashboard_server.py`). It connects to the running simulation via SSE (Server-Sent Events) and to the Base main blockchain directly.
+The project includes a **real-time dashboard** (`fl_blockchain_evm/dashboard/fl_dashboard.html`) served by a FastAPI backend (`fl_blockchain_evm/dashboard/server.py`). It connects to the running simulation via SSE (Server-Sent Events) and to the Base mainnet blockchain directly.
 
 **Features:**
 
@@ -262,7 +275,7 @@ The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a
 | **Client Training Table** | Per-device loss, sample count, duration, active classes, accept/reject vote |
 | **Loss Threshold Votes** | Visual bar chart of each client's loss vs. threshold |
 | **Metrics History Chart** | Hand-drawn line chart of accuracy, F1, AUC over rounds |
-| **Per-Superclass F1** | Bar breakdown for NORM, MI, STTC, CD, HYP |
+| **Per-Activity F1** | Bar breakdown for all 12 MHEALTH activities |
 | **Confusion Matrix** | 5×5 heatmap with intensity shading |
 | **Blockchain Ledger** | Live connection to Base main — shows recent blocks (LOCAL/VOTE/GLOBAL), chain validity badge, expandable full history |
 | **IPFS Off-Chain Storage** | Active/disabled status, total pin count, per-round CID list with clickable Pinata gateway links |
@@ -277,34 +290,19 @@ The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a
 
 ## Research Background
 
-This project draws conceptually from three papers:
+This system is grounded in three converging research threads:
 
-- **SPBFL-IoV** (Ullah et al., *Computer Networks* 2025) — blockchain integration in FL for tamper-proof model update recording; filtering/clipping mechanisms for poisoning defense.
-- **BFMIL** (Wu et al., *Computers & Electrical Engineering* 2026) — three-block on-chain storage structure (local model blocks, vote score blocks, global model blocks); equal-weight aggregation for non-IID data.
-- **BCS+DL** (Pajila et al., *Peer-to-Peer Networking and Applications* 2026) — blockchain security scheme for distributed learning systems.
+**Federated learning for HAR on wearable devices.** Trotta et al. (2024) and Arikumar et al. (2022) demonstrate FL across resource-constrained IoT/edge devices for activity recognition but do not address audit transparency or tamper-proofing of the training process. This work extends the paradigm by adding a production blockchain ledger.
 
-The key differences from these works: this project does **not** implement homomorphic encryption, metric/triplet loss, or deep-learning-based anomaly detection. The on-chain filtering is simpler (loss threshold vs. Euclidean distance from global model), and the target domain is 12-lead ECG classification rather than image classification or WSN security.
+**Blockchain-anchored federated learning.** Wu et al. (2026) and Ullah et al. (2025) integrate blockchain into FL to provide immutable records of model updates and voting decisions. Both use permissioned or simulated chains. This system differs by deploying on **Base mainnet** — a public Ethereum L2 — with real gas costs and real transaction latency, providing a fully production-capable audit trail.
 
----
+**Ethereum Layer-2 for FL middleware.** Base (OP Stack, Ethereum L2) was chosen over L1 Ethereum for its sub-cent transaction fees and 2-second block times, making per-round on-chain writes economically viable. Neiheiser et al. (2023) and Mandal et al. (2023) characterise L2 performance boundaries that informed the 3-transaction-per-round design.
 
-### Papers to Compare Against
-
-#### Category 1 — FL + Blockchain on ECG / Medical IoT (closest match)
-- **Rajagopal et al., 2025 — "Leveraging Blockchain and FL in Edge-Fog-Cloud Computing for ECG Data in IoT"** Journal of Network and Computer Applications, vol. 233. A highly comparable study involving FL and blockchain for ECG data across IoT edge devices. It utilizes a three-tier edge-fog-cloud architecture and smart contracts for decision-making. Key difference: that study employs a fog layer intermediary, whereas the current system is flat (clients → server → Ethereum directly). It also lacks a per-round immutable voting mechanism. https://doi.org/10.1016/j.jnca.2024.104037
-- **Otoum et al., 2024 — "Enhancing Heart Disease Prediction with Federated Learning and Blockchain Integration"** Future Internet, 16(372). Blockchain-integrated FL for cardiac data. Uses blockchain to secure model updates but does not target ECG superclass classification on PTB-XL or address class imbalance with ROS+RUS. It also lacks an on-chain voting filter. https://doi.org/10.3390/fi16100372
-
-#### Category 2 — FL on ECG / PTB-XL (same dataset, no blockchain)
-- **Jimenez et al., 2024 — "Application of FL Techniques for Arrhythmia Classification Using 12-Lead ECG Signals"** arXiv:2208.10993v3. This serves as a primary baseline, specifically for the ROS+RUS balancing strategy. It achieves F1 scores in the FL Non-IID setting on 12-lead ECG but utilizes no blockchain, no IoT edge deployment, and no immutable ledger. It provides a direct comparison point for classification performance. https://doi.org/10.48550/arXiv.2208.10993
-- **FL-LSTM (Explainable FL), 2025 — "Explainable Federated Learning for Multi-Class Heart Disease Diagnosis via ECG Fiducial Features"** Diagnostics, MDPI, Dec 2025. Achieves 92% accuracy, 99% AUC, and 91% F1 score across three heterogeneous ECG datasets using an FL-LSTM framework, with SHAP and LIME for interpretability. No blockchain, IoT hardware, or specific class-imbalance handling is included. The current model is architecturally simpler but adds the blockchain audit layer. https://doi.org/10.3390/diagnostics15243110
-- **FL-GAF (Gramian Angular Field), 2025 — "Federated Learning with GAF for Privacy-Preserving ECG Classification on Heterogeneous IoT Devices"** IEEE ComComAp 2025. Transforms 1D ECG signals into 2D Gramian Angular Field images and deploys FL across heterogeneous IoT devices including a Raspberry Pi 4. While it demonstrates classification accuracy of 95.18%, it lacks a blockchain audit layer. 
-
-#### Category 3 — Blockchain + FL on IoT (same infrastructure, different domain)
-- **Leash-FL, 2025 — "Lightweight ECC-Based Self-Healing FL Framework for Secure IIoT Networks"** Sensors, MDPI, Nov 2025. Records all outcomes immutably on a lightweight blockchain; each record includes the hash of the submitted update, pseudonym, timestamp, and verdict. Key difference: focused on the industrial IoT domain rather than medical ECG. It utilizes a permissioned/private blockchain, whereas this system utilizes public Ethereum. https://doi.org/10.3390/s25226867
-- **FBCI-SHS, 2025 — "Blockchain Framework with IoT Device using FL for Sustainable Healthcare"** Scientific Reports, Jul 2025. Healthcare domain + FL + blockchain + IoT implementation. Uses PBFT consensus (computationally heavier than the PoA used here) and does not address ECG superclass imbalance.
-
-#### Category 4 — PTB-XL Benchmarks (performance reference only)
-- **Strodthoff et al. (PTB-XL benchmark)** — The standard reference for achievable performance on PTB-XL superclass classification. Achieves macro-AUC scores of 0.93 using ResNet- and Inception-based networks. This is the ceiling for pure classification performance.
-- **MRF-CNN on PTB-XL** — Achieves F1 score of 0.72 and AUC of 0.93 in superclass classification on PTB-XL. This provides a direct F1 comparison target for the current model.
+**Key differentiators from prior work:**
+- Real production L2 deployment (not testnet or simulation)
+- Quantified per-round blockchain middleware overhead with baseline vs. optimised comparison
+- Hardware FL on Raspberry Pi 4 devices (subjects 1–8), not simulated edge nodes
+- 12-class HAR (MHEALTH) with per-activity AUC reaching 99.9%
 
 ---
 
@@ -314,16 +312,15 @@ The key differences from these works: this project does **not** implement homomo
 
 ```
 python >= 3.10
-flwr >= 1.10
-torch >= 2.0
-web3 >= 6.0
-requests >= 2.31
-wfdb
+flwr[simulation] >= 1.23
+torch >= 2.7
+scikit-learn >= 1.3
 numpy
 pandas
-scikit-learn
 matplotlib
 seaborn
+web3 >= 6.0
+requests >= 2.31
 python-dotenv
 ```
 
@@ -333,9 +330,9 @@ python-dotenv
   - [Pinata](https://app.pinata.cloud) — free tier: 500 pins, 1 GB (recommended for RP4)
   - Or [web3.storage](https://web3.storage) — free tier: 5 GB
   - Or local IPFS node (kubo) running on the server machine
-- **Base main testnet ETH** for gas fees
-  - Faucet: Get the main Testnet ETH first, then use any bridge to swap main ETH with Base main ETH. I used [https://superbridge.app](https://superbridge.app)
-  - You'll need ~0.01-0.03 ETH for a full 10-round simulation
+- **Base mainnet ETH** for gas fees (real ETH, not testnet)
+  - Bridge from Ethereum L1 using [https://superbridge.app](https://superbridge.app)
+  - You'll need ~0.001–0.005 ETH for a full 10-round session (Base L2 fees are very low)
 - **Base main RPC endpoint**
   - Public RPC: `https://main.base.org` (free, no API key needed)
   - Or use Alchemy/Infura for better reliability
@@ -369,23 +366,30 @@ source .venv/bin/activate        # Linux / macOS
 ```bash
 pip install -r requirements.txt .
 # or
-pip install flwr torch web3 wfdb numpy pandas scikit-learn matplotlib seaborn python-dotenv
+pip install -r requirements.txt .
 ```
 
-### 4. Download mHealth manually
+### 4. Download the MHEALTH dataset
 
-// needs to change to mhealth
+Download the dataset from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/319/mhealth+dataset) and place it at:
 
-> The code uses the **100 Hz** version (`records100` / `filename_lr` column). Make sure the `data/ptb-xl/` folder is at the project root.
+```
+data/MHEALTHDATASET/
+    mHealth_subject1.log
+    mHealth_subject2.log
+    ...
+    mHealth_subject10.log
+    README.txt
+```
 
-A numpy cache will be built automatically on the first run and saved to `data/ptb-xl/.cache/` to speed up subsequent runs.
+The loader (`fl_blockchain_evm/core/data.py`) reads the `.log` files directly. No preprocessing is required — windowing and normalisation are handled automatically at load time.
 
 ### 5. Deploy the smart contract with Remix
 
 No Hardhat or local Node setup is needed. The contract is deployed directly from the browser using [Remix IDE](https://remix.ethereum.org).
 
 1. Open [https://remix.ethereum.org](https://remix.ethereum.org).
-2. Create a new file and paste the contents of `SimpleFLBlockchain.sol`.
+2. Create a new file and paste the contents of `contracts/FLBlockchain.sol`.
 3. In the **Solidity Compiler** tab, select compiler version `0.8.20` and compile.
 4. In the **Deploy & Run Transactions** tab:
    - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Base main**).
@@ -393,7 +397,7 @@ No Hardhat or local Node setup is needed. The contract is deployed directly from
 5. After deployment, copy the **contract address** from the Remix console.
 6. In the **Compilation Details** panel, copy the **ABI** and save it as `FLBlockchain_abi.json` in the project root.
 
-> **Note:** You need Base main testnet ETH for gas. Get some from the [Coinbase Faucet](https://www.coinbase.com/faucets/base-main-faucet).
+> **Note:** You need real Base mainnet ETH for gas (not testnet). Bridge from Ethereum L1 via [Superbridge](https://superbridge.app).
 
 **To add Base main to MetaMask:**
 - Network Name: Base main
@@ -425,18 +429,24 @@ All FL hyperparameters live in `pyproject.toml`:
 
 ```toml
 [tool.flwr.app.config]
-num-server-rounds = 5
-fraction-train   = 1.0      # fraction of clients selected per round
-local-epochs     = 3
-lr               = 2e-3
+num-server-rounds = 10
+fraction-train    = 1.0      # all 8 training clients selected each round
+local-epochs      = 1
+lr                = 0.002
+batch-size        = 256
 ```
 
-Partition count is set in the `[tool.flwr.federations.local-simulation]` section:
+The federation runs with **8 virtual SuperNodes** (one per MHEALTH training subject):
 
 ```toml
+# local simulation example
 [tool.flwr.federations.local-simulation]
-options.num-supernodes = 10
+options.num-supernodes = 8
+options.backend.client_resources.num_cpus = 1
+options.backend.client_resources.num_gpus = 0
 ```
+
+For hardware deployment on Raspberry Pi 4 devices, use the remote federation config and point each device to the SuperLink address.
 
 ---
 
@@ -450,7 +460,7 @@ All commands assume you are in the project root with the virtual environment act
 flwr run .
 ```
 
-This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Base main, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
+This launches a local simulation with 8 virtual clients (one per training subject). The blockchain writes are real — each round will send transactions to Base mainnet, so ensure your wallet has sufficient ETH (roughly 0.001 ETH per round).
 
 **What happens during training:**
 - Each round writes exactly **3 transactions** to Base main:
@@ -467,7 +477,7 @@ This launches a local simulation with 10 virtual clients. The blockchain writes 
 
 ```bash
 source venv/bin/activate  # or .venv/bin/activate
-python -m fl_blockchain_evm.fl_dashboard_server
+python -m fl_blockchain_evm.dashboard.server
 ```
 
 You should see:
@@ -489,7 +499,7 @@ The dashboard shows:
 - 📈 Historical metrics charts
 - 🔗 **Blockchain ledger** with live Base main connection and chain validity indicator
 - 📡 **IPFS panel** with per-round CID links to Pinata gateway
-- 🎨 Confusion matrix heatmap and per-superclass F1 bars
+- 🎨 Confusion matrix heatmap and per-activity F1 bars
 
 > **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base main to display actual blockchain blocks and reads IPFS CIDs from training results.
 
@@ -505,7 +515,7 @@ bc.print_chain_summary()
 
 ---
 
-## Outputs
+## Outputs & Results
 
 After a successful run the following files are created:
 
@@ -558,18 +568,62 @@ for r in global_rounds:
 
 ```python
 import torch
-from fl_blockchain_evm.task import Net
+from fl_blockchain_evm.core.model import Net
 
 model = Net()
 model.load_state_dict(torch.load("final_model.pt", map_location="cpu"))
 model.eval()
 ```
 
+### Training Results (10 rounds, 8 Raspberry Pi 4 clients)
+
+| Round | Accuracy | Macro-F1 | Macro-AUC | Loss  | Chain Blocks |
+|------:|:--------:|:--------:|:---------:|:-----:|:------------:|
+| 0     | 10.9%    | 3.3%     | 55.0%     | 2.483 | 98           |
+| 1     | 49.0%    | 42.0%    | 92.4%     | 2.177 | 101          |
+| 2     | 62.6%    | 61.3%    | 97.0%     | 1.227 | 104          |
+| 3     | 80.9%    | 77.7%    | 97.5%     | 0.850 | 107          |
+| 4     | 85.8%    | 83.5%    | 94.6%     | 0.779 | 110          |
+| 5     | 90.9%    | 90.9%    | 95.9%     | 0.520 | 113          |
+| 6     | 90.7%    | 90.5%    | 97.8%     | 0.491 | 116          |
+| **7** | **91.6%**| **91.7%**| **99.7%** |**0.343**| **119**   |
+| 8     | 90.1%    | 90.0%    | 98.4%     | 0.432 | 122          |
+| 9     | 88.9%    | 88.2%    | 99.9%     | 0.354 | 125          |
+| 10    | 91.4%    | 91.3%    | 100.0%    | 0.273 | 128          |
+
+Peak performance at **round 7**: 91.6% accuracy, 91.7% macro-F1, 99.7% macro-AUC. Each round writes exactly 3 blocks to Base mainnet (LOCAL + VOTE + GLOBAL), totalling 30 transactions and ~42 IPFS pins per 10-round session.
+
+---
+
+## Blockchain Middleware Optimisation
+
+The `EVMBlockchain` class supports two operating modes controlled by a single environment variable in `.env`:
+
+```env
+BLOCKCHAIN_OPTIMIZED=0   # baseline  — estimate_gas + fresh gas_price per tx
+BLOCKCHAIN_OPTIMIZED=1   # optimised — lazy gas cache + round-level gas_price + async IPFS
+```
+
+**What the optimised mode changes:**
+
+| Optimisation | Baseline | Optimised |
+|---|---|---|
+| **O1 — Gas-limit estimation** | `eth_estimateGas` every tx (3 RPC calls/round) | Estimate once per block-type (round 0), cache × 1.25 headroom, reuse from round 1 |
+| **O2 — Gas price** | `eth_gasPrice` fetched per tx (3 calls/round) | Fetched once at round start, cached for all 3 txs |
+| **O3 — IPFS uploads** | Blocking on critical path before tx fire | Background daemon thread — completes during 10–30 s confirmation wait |
+| **O4 — Chain verification** | `verifyChain()` after every round | Deferred to session end only |
+
+**Per-round timing logs** are written automatically to `outputs/`:
+- `outputs/perf_baseline_YYYYMMDD_HHMMSS.log`
+- `outputs/perf_optimized_YYYYMMDD_HHMMSS.log`
+
+Each log entry includes sub-millisecond timestamps for gas estimation, gas price fetch, tx submission, IPFS upload, and confirmation latency — enabling direct baseline vs. optimised comparison without manual instrumentation.
+
 ---
 
 ## Smart Contract
 
-**`SimpleFLBlockchain.sol`** — deployed on Base main testnet.
+**`contracts/FLBlockchain.sol`** — deployed on Base mainnet.
 
 Inherits from OpenZeppelin's `Ownable` and `Pausable`. Key design decisions:
 
@@ -590,6 +644,6 @@ Functions:
   pause() / unpause()        onlyOwner
 ```
 
-The Python wrapper (`blockchain.py`) serializes all metadata as JSON, encodes it to `bytes`, and calls `addBlock`. Only the `keccak256` hash of the payload is stored on-chain; the raw data is not.
+The Python wrapper (`fl_blockchain_evm/infra/blockchain.py`) serializes all metadata as JSON, encodes it to `bytes`, and calls `addBlock`. Only the `keccak256` hash of the payload is stored on-chain; the raw data is not.
 
 ---
