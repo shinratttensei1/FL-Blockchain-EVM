@@ -1,6 +1,6 @@
 # Blockchain-Based Federated Learning for ECG Superclass Classification
 
-> **Course project** — Federated learning over the PTB-XL dataset with an Ethereum smart-contract ledger for auditability and tamper-proof model tracking.
+> **Course project** — Federated learning over the mHealth dataset with an Base mainnet smart-contract ledger for auditability and tamper-proof model tracking.
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## Overview
 
-This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Base Sepolia testnet) via a custom Solidity smart contract.
+This project implements a **federated learning (FL) system** for 12-lead ECG classification that records every training event — local model updates, voting decisions, and aggregated global models — to an **Ethereum blockchain** (Base main testnet) via a custom Solidity smart contract.
 
 **Clinical task:** Classify each ECG recording into one or more of **5 superclasses** defined by the PTB-XL standard:
 
@@ -72,7 +72,7 @@ flowchart TD
     subgraph ON_CHAIN ["Blockchain Layer"]
         EVM_BRIDGE["blockchain.py (Web3.py)"]
         CONTRACT["SimpleFLBlockchain (Solidity)"]
-        NETWORK_TAGP["Base Sepolia Testnet"]
+        NETWORK_TAGP["Base main Testnet"]
     end
 
     SERVER ---->|"Pin Model + Metrics"| IPFS_BRIDGE
@@ -251,7 +251,7 @@ assert ipfs.verify_content("QmXyz...", expected_sha256="abc123...")
 
 ## Live Dashboard
 
-The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a FastAPI backend (`fl_dashboard_server.py`). It connects to the running simulation via SSE (Server-Sent Events) and to the Base Sepolia blockchain directly.
+The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a FastAPI backend (`fl_dashboard_server.py`). It connects to the running simulation via SSE (Server-Sent Events) and to the Base main blockchain directly.
 
 **Features:**
 
@@ -264,7 +264,7 @@ The project includes a **real-time dashboard** (`fl_dashboard.html`) served by a
 | **Metrics History Chart** | Hand-drawn line chart of accuracy, F1, AUC over rounds |
 | **Per-Superclass F1** | Bar breakdown for NORM, MI, STTC, CD, HYP |
 | **Confusion Matrix** | 5×5 heatmap with intensity shading |
-| **Blockchain Ledger** | Live connection to Base Sepolia — shows recent blocks (LOCAL/VOTE/GLOBAL), chain validity badge, expandable full history |
+| **Blockchain Ledger** | Live connection to Base main — shows recent blocks (LOCAL/VOTE/GLOBAL), chain validity badge, expandable full history |
 | **IPFS Off-Chain Storage** | Active/disabled status, total pin count, per-round CID list with clickable Pinata gateway links |
 
 **Interactive controls:**
@@ -333,15 +333,15 @@ python-dotenv
   - [Pinata](https://app.pinata.cloud) — free tier: 500 pins, 1 GB (recommended for RP4)
   - Or [web3.storage](https://web3.storage) — free tier: 5 GB
   - Or local IPFS node (kubo) running on the server machine
-- **Base Sepolia testnet ETH** for gas fees
-  - Faucet: Get the Sepolia Testnet ETH first, then use any bridge to swap Sepolia ETH with Base Sepolia ETH. I used [https://superbridge.app](https://superbridge.app)
+- **Base main testnet ETH** for gas fees
+  - Faucet: Get the main Testnet ETH first, then use any bridge to swap main ETH with Base main ETH. I used [https://superbridge.app](https://superbridge.app)
   - You'll need ~0.01-0.03 ETH for a full 10-round simulation
-- **Base Sepolia RPC endpoint**
-  - Public RPC: `https://sepolia.base.org` (free, no API key needed)
+- **Base main RPC endpoint**
+  - Public RPC: `https://main.base.org` (free, no API key needed)
   - Or use Alchemy/Infura for better reliability
-- **Base Sepolia Network Details**
+- **Base main Network Details**
   - Chain ID: 84532
-  - Explorer: [https://sepolia.basescan.org](https://sepolia.basescan.org)
+  - Explorer: [https://main.basescan.org](https://main.basescan.org)
   - Block time: ~2 seconds
   - Gas costs: Very low (L2 benefits)
 
@@ -372,24 +372,9 @@ pip install -r requirements.txt .
 pip install flwr torch web3 wfdb numpy pandas scikit-learn matplotlib seaborn python-dotenv
 ```
 
-### 4. Download PTB-XL manually
+### 4. Download mHealth manually
 
-1. Go to [https://physionet.org/content/ptb-xl/1.0.3/](https://physionet.org/content/ptb-xl/1.0.3/) and create a free PhysioNet account if you don't have one.
-2. Download the full dataset ZIP (≈ 1.7 GB).
-3. Extract it so the structure looks like this:
-
-```
-data/
-└── ptb-xl/
-    ├── ptbxl_database.csv
-    ├── scp_statements.csv
-    ├── records100/
-    │   ├── 00000/
-    │   └── ...
-    └── records500/
-        ├── 00000/
-        └── ...
-```
+// needs to change to mhealth
 
 > The code uses the **100 Hz** version (`records100` / `filename_lr` column). Make sure the `data/ptb-xl/` folder is at the project root.
 
@@ -403,26 +388,26 @@ No Hardhat or local Node setup is needed. The contract is deployed directly from
 2. Create a new file and paste the contents of `SimpleFLBlockchain.sol`.
 3. In the **Solidity Compiler** tab, select compiler version `0.8.20` and compile.
 4. In the **Deploy & Run Transactions** tab:
-   - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Base Sepolia**).
+   - Set environment to **Injected Provider - MetaMask** (make sure MetaMask is connected to **Base main**).
    - Click **Deploy**.
 5. After deployment, copy the **contract address** from the Remix console.
 6. In the **Compilation Details** panel, copy the **ABI** and save it as `FLBlockchain_abi.json` in the project root.
 
-> **Note:** You need Base Sepolia testnet ETH for gas. Get some from the [Coinbase Faucet](https://www.coinbase.com/faucets/base-sepolia-faucet).
+> **Note:** You need Base main testnet ETH for gas. Get some from the [Coinbase Faucet](https://www.coinbase.com/faucets/base-main-faucet).
 
-**To add Base Sepolia to MetaMask:**
-- Network Name: Base Sepolia
-- RPC URL: `https://sepolia.base.org`
+**To add Base main to MetaMask:**
+- Network Name: Base main
+- RPC URL: `https://main.base.org`
 - Chain ID: 84532
 - Currency Symbol: ETH
-- Block Explorer: `https://sepolia.basescan.org`
+- Block Explorer: `https://main.basescan.org`
 
 ### 6. Configure environment variables
 
 Create a `.env` file in the project root (never commit this file):
 
 ```env
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+BASE_main_RPC_URL=https://main.base.org
 PRIVATE_KEY=0x<YOUR_WALLET_PRIVATE_KEY>
 CONTRACT_ADDRESS=0x<DEPLOYED_CONTRACT_ADDRESS>
 
@@ -465,10 +450,10 @@ All commands assume you are in the project root with the virtual environment act
 flwr run .
 ```
 
-This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Base Sepolia, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
+This launches a local simulation with 10 virtual clients. The blockchain writes are real — each round will send transactions to Base main, so ensure your wallet has sufficient testnet ETH (roughly 0.01 ETH per round with default settings).
 
 **What happens during training:**
-- Each round writes exactly **3 transactions** to Base Sepolia:
+- Each round writes exactly **3 transactions** to Base main:
   1. `LOCAL` block - aggregated client training data
   2. `VOTE` block - acceptance/rejection decisions
   3. `GLOBAL` block - global model evaluation metrics
@@ -502,11 +487,11 @@ The dashboard shows:
 - 📊 Real-time training metrics (accuracy, F1, AUC) with interactive round slider
 - 🎯 Per-client training loss and vote decisions
 - 📈 Historical metrics charts
-- 🔗 **Blockchain ledger** with live Base Sepolia connection and chain validity indicator
+- 🔗 **Blockchain ledger** with live Base main connection and chain validity indicator
 - 📡 **IPFS panel** with per-round CID links to Pinata gateway
 - 🎨 Confusion matrix heatmap and per-superclass F1 bars
 
-> **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base Sepolia to display actual blockchain blocks and reads IPFS CIDs from training results.
+> **Tip:** Start the dashboard server before or during training to see live updates. The dashboard connects to Base main to display actual blockchain blocks and reads IPFS CIDs from training results.
 
 ### Verify blockchain integrity after the run
 
@@ -584,7 +569,7 @@ model.eval()
 
 ## Smart Contract
 
-**`SimpleFLBlockchain.sol`** — deployed on Base Sepolia testnet.
+**`SimpleFLBlockchain.sol`** — deployed on Base main testnet.
 
 Inherits from OpenZeppelin's `Ownable` and `Pausable`. Key design decisions:
 
@@ -608,12 +593,3 @@ Functions:
 The Python wrapper (`blockchain.py`) serializes all metadata as JSON, encodes it to `bytes`, and calls `addBlock`. Only the `keccak256` hash of the payload is stored on-chain; the raw data is not.
 
 ---
-
-## Limitations & Future Work
-
-- **No homomorphic encryption** — model updates are transmitted in plaintext between clients and server. Future work could add HE (e.g., TenSEAL) for gradient privacy as in SPBFL-IoV.
-- **Simple loss-threshold filter** — the current voting mechanism flags outliers by `mean + std` of training loss. A stronger defense (e.g., cosine similarity filtering, Krum, or Bulyan) would be more robust against model poisoning.
-- **All clients still contribute** — flagged clients are written as REJECTED on-chain for auditability, but their weights are still included in aggregation. A stricter setup would exclude rejected clients from `FedAvg`.
-- **Single-server bottleneck** — the server holds the global model and writes all VOTE/GLOBAL blocks. A fully decentralized setup (per the BFMIL paper) would distribute aggregation to the blockchain itself via smart contracts.
-- **Base Sepolia gas costs** — each round writes 3 transactions (LOCAL + VOTE + GLOBAL summary blocks). At default settings (10 clients, 10 rounds) gas costs are minimal due to Base's low fees, but on mainnet this would be prohibitively expensive.
-- **Evaluation proxy** — global evaluation currently uses the test split of a single partition rather than the full held-out set. A proper setup would aggregate evaluation across all partitions.

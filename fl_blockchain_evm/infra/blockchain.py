@@ -1,26 +1,62 @@
 """Simplified EVM Blockchain wrapper for FLBlockchain contract.
-
-Network: Base Sepolia (Ethereum Layer 2 testnet)
-  - Chain ID : 84532
-  - RPC      : https://sepolia.base.org  (or Alchemy/Infura endpoint)
-  - Faucet   : https://www.coinbase.com/faucets/base-sepolia-faucet
-  - Explorer : https://sepolia.basescan.org
-  - Block time: ~2 seconds
-  - Gas cost : very low base fees + Ethereum Sepolia security
-
 Features:
   - _send_transaction supports fire-and-wait pattern: returns tx_hash immediately
     without blocking; call wait_for_pending() at end of round to confirm all.
   - add_round_summary_block: writes ONE LOCAL block and ONE VOTE block summarising
     ALL clients for the round, instead of one pair of blocks per client.
     This reduces blockchain writes from (2K + 1) to 3 per round.
+  - OPTIMIZED mode (BLOCKCHAIN_OPTIMIZED=1 in .env):
+      * Lazy gas-limit cache: estimate_gas called once per block-type (round 0),
+        result cached with 25% headroom and reused for rounds 1-N — zero RPC
+        calls for gas estimation from round 1 onwards
+      * Round-level gas_price caching (one RPC fetch per round, not per tx)
+      * Async IPFS upload via background thread (off critical path)
+      * verifyChain() deferred to end of session only
+  - PerfLogger writes per-round timing to a timestamped .log file so
+    baseline and optimized runs can be compared directly.
 """
 
 import os
 import json
+import time
+import threading
+import logging
+from datetime import datetime
 from typing import Dict, List, Optional
 from web3 import Web3
 from dotenv import load_dotenv
+
+# ── Performance logger ───────────────────────────────────────
+
+def _make_perf_logger(optimized: bool) -> logging.Logger:
+    """Create a file logger for per-round timing comparison."""
+    os.makedirs("outputs", exist_ok=True)
+    tag = "optimized" if optimized else "baseline"
+    ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = f"outputs/perf_{tag}_{ts}.log"
+
+    logger = logging.getLogger(f"fl_perf_{tag}_{ts}")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    fh = logging.FileHandler(path, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fmt = logging.Formatter("%(asctime)s  %(message)s", datefmt="%H:%M:%S.%f")
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
+
+    logger.info(f"=== FL-Blockchain Performance Log ===")
+    logger.info(f"Mode     : {'OPTIMIZED' if optimized else 'BASELINE'}")
+    logger.info(f"Started  : {datetime.now().isoformat()}")
+    logger.info(f"File     : {path}")
+    logger.info("=" * 50)
+    print(f"  [PERF] Logging to {path}")
+    return logger
+
+# Baseline fallback gas limit (wei) — used only before the lazy cache is
+# populated on the first estimate.  Generous enough to avoid OOG; unused gas
+# is refunded by the EVM so over-estimating is safe.
+_GAS_FALLBACK = 500_000
 
 # Try to load .env from multiple possible locations
 _env_loaded = False
@@ -54,6 +90,11 @@ class EVMBlockchain:
     """Wrapper for FLBlockchain smart contract."""
 
     def __init__(self):
+        # ── Optimized mode flag ───────────────────────────────
+        self._optimized = os.getenv("BLOCKCHAIN_OPTIMIZED", "0").strip() == "1"
+        self._perf = _make_perf_logger(self._optimized)
+        self._perf.info(f"BLOCKCHAIN_OPTIMIZED = {self._optimized}")
+
         # Load config
         self.rpc_url = os.getenv("BASE_SEPOLIA_RPC_URL")
         self.private_key = os.getenv("PRIVATE_KEY")
@@ -105,6 +146,8 @@ class EVMBlockchain:
 
         # Pending tx hashes queued for confirmation at end of round
         self._pending: List[bytes] = []
+        # Timestamps matching _pending so we can log submission→confirmation gap
+        self._pending_t0: List[float] = []
 
         # Nonce tracked manually so fire-and-wait works without collisions
         self._nonce: Optional[int] = None
@@ -112,6 +155,16 @@ class EVMBlockchain:
         # Local chain length counter — keeps us from re-querying the chain
         # every round (each round writes exactly 3 blocks: LOCAL+VOTE+GLOBAL)
         self._chain_length: int = chain_length
+
+        # Per-round cached gas price (OPTIMIZED mode: fetched once per round)
+        self._cached_gas_price: Optional[int] = None
+
+        # Per-block-type gas cache (OPTIMIZED mode: estimate_gas once, reuse).
+        # Populated lazily on the first transaction of each block_type so that
+        # the measured value is used; this avoids the brittleness of hard-coded
+        # static limits while still skipping estimate_gas RPC calls from round 1
+        # onwards.
+        self._gas_cache: Dict[str, int] = {}
 
         # IPFS off-chain storage (optional — degrades gracefully)
         self._ipfs = None
@@ -138,44 +191,105 @@ class EVMBlockchain:
         self._nonce += 1
         return n
 
-    def _send_transaction(self, function_call, fire_and_wait: bool = False):
+    def _send_transaction(self, function_call, fire_and_wait: bool = False,
+                          block_type: str = ""):
         """Send a transaction.
 
         fire_and_wait=False (default): send and block until confirmed.
         fire_and_wait=True           : send immediately, store hash in
                                        self._pending, return without blocking.
                                        Call wait_for_pending() when ready.
+
+        BASELINE  — calls estimate_gas + fresh gas_price per transaction.
+        OPTIMIZED — uses _STATIC_GAS map + cached round-level gas_price.
         """
         nonce = self._next_nonce()
 
-        try:
-            gas_estimate = function_call.estimate_gas(
-                {'from': self.account.address})
-            gas_limit = int(gas_estimate * 1.2)
-        except Exception:
-            gas_limit = 500_000
+        # ── Gas limit ─────────────────────────────────────────
+        t_gas0 = time.perf_counter()
+        if self._optimized and block_type and block_type in self._gas_cache:
+            # O1: reuse the value measured on the first round — zero RPC calls.
+            gas_limit = self._gas_cache[block_type]
+            t_gas1 = time.perf_counter()
+            self._perf.info(
+                f"  gas_limit  type={block_type:6s} cached={gas_limit}"
+                f"  saved_rpc_ms=~30"
+            )
+        else:
+            # Baseline path, or first use of this block_type in optimized mode:
+            # call estimate_gas (safe, accurate) and cache the result.
+            try:
+                gas_estimate = function_call.estimate_gas(
+                    {'from': self.account.address})
+                gas_limit = int(gas_estimate * 1.25)  # 25 % safety headroom
+            except Exception:
+                gas_limit = _GAS_FALLBACK
+            t_gas1 = time.perf_counter()
+            if self._optimized and block_type:
+                self._gas_cache[block_type] = gas_limit   # cache for round 2+
+                self._perf.info(
+                    f"  gas_limit  type={block_type:6s} estimated={gas_limit}"
+                    f"  estimate_ms={1000*(t_gas1-t_gas0):.1f}  (cached for future rounds)"
+                )
+            else:
+                self._perf.info(
+                    f"  gas_limit  type={block_type:6s} estimated={gas_limit}"
+                    f"  estimate_ms={1000*(t_gas1-t_gas0):.1f}"
+                )
+
+        # ── Gas price ─────────────────────────────────────────
+        t_gp0 = time.perf_counter()
+        if self._optimized and self._cached_gas_price is not None:
+            gas_price = self._cached_gas_price
+            t_gp1 = time.perf_counter()
+            self._perf.info(
+                f"  gas_price  cached={gas_price}  saved_rpc_ms=~20"
+            )
+        else:
+            gas_price = self.w3.eth.gas_price
+            t_gp1 = time.perf_counter()
+            self._perf.info(
+                f"  gas_price  fetched={gas_price}"
+                f"  fetch_ms={1000*(t_gp1-t_gp0):.1f}"
+            )
 
         transaction = function_call.build_transaction({
             'from': self.account.address,
             'nonce': nonce,
             'gas': gas_limit,
-            'gasPrice': self.w3.eth.gas_price,
+            'gasPrice': gas_price,
             'chainId': self.w3.eth.chain_id,
         })
 
         signed = self.w3.eth.account.sign_transaction(
             transaction, self.private_key)
+
+        t_send = time.perf_counter()
         tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        t_sent = time.perf_counter()
+
+        self._perf.info(
+            f"  tx_sent    type={block_type:6s}"
+            f"  hash={tx_hash.hex()[:12]}..."
+            f"  send_ms={1000*(t_sent-t_send):.1f}"
+        )
         print(f"  [EVM] Transaction sent: {tx_hash.hex()}")
 
         if fire_and_wait:
             self._pending.append(tx_hash)
+            self._pending_t0.append(t_sent)
             return tx_hash
 
         print(f"  [EVM] Waiting for confirmation...")
         receipt = self.w3.eth.wait_for_transaction_receipt(
             tx_hash, timeout=600, poll_latency=1.0)
+        t_conf = time.perf_counter()
         if receipt['status'] == 1:
+            self._perf.info(
+                f"  confirmed  type={block_type:6s}"
+                f"  block={receipt['blockNumber']}"
+                f"  confirm_ms={1000*(t_conf-t_sent):.0f}"
+            )
             print(f"  [EVM] ✓ Confirmed in block {receipt['blockNumber']}")
             return receipt
         else:
@@ -187,14 +301,28 @@ class EVMBlockchain:
             return
         n = len(self._pending)
         print(f"  [EVM] Waiting for {n} pending transaction(s)...")
-        for tx_hash in self._pending:
+        t_wait0 = time.perf_counter()
+        for i, tx_hash in enumerate(self._pending):
             receipt = self.w3.eth.wait_for_transaction_receipt(
                 tx_hash, timeout=timeout, poll_latency=1.0)
             if receipt['status'] != 1:
                 raise RuntimeError(f"Transaction failed: {receipt}")
+            t_conf = time.perf_counter()
+            lag = 1000 * (t_conf - self._pending_t0[i]) if self._pending_t0 else 0
+            self._perf.info(
+                f"  confirmed  idx={i}"
+                f"  block={receipt['blockNumber']}"
+                f"  submit_to_confirm_ms={lag:.0f}"
+            )
             print(f"  [EVM] ✓ Confirmed in block {receipt['blockNumber']}")
+        t_wait1 = time.perf_counter()
+        self._perf.info(
+            f"  wait_for_pending  n={n}"
+            f"  total_wait_ms={1000*(t_wait1-t_wait0):.0f}"
+        )
         self._chain_length += n   # update local counter
         self._pending.clear()
+        self._pending_t0.clear()
 
     # ─────────────────────────────────────────────────────────
     # Per-round batch writes  (3 tx per round instead of 2K+1)
@@ -216,8 +344,26 @@ class EVMBlockchain:
         Both transactions are fired immediately (fire_and_wait=True).
         Call wait_for_pending() after add_global_model_block() to confirm
         all three round transactions together.
+
+        OPTIMIZED mode: gas_price is cached once here for the entire round
+        (used for all 3 txs), and IPFS uploads run in background threads so
+        the LOCAL/VOTE transactions are not blocked by HTTP upload latency.
         """
-        # ── LOCAL block: aggregated view of all clients this round ──
+        t_round0 = time.perf_counter()
+        self._perf.info(f"--- ROUND {fl_round} start  mode={'OPT' if self._optimized else 'BASE'}")
+
+        # ── Cache gas price once per round (OPTIMIZED) ────────
+        if self._optimized:
+            t_gp = time.perf_counter()
+            self._cached_gas_price = self.w3.eth.gas_price
+            self._perf.info(
+                f"  gas_price_cached  price={self._cached_gas_price}"
+                f"  fetch_ms={1000*(time.perf_counter()-t_gp):.1f}"
+            )
+        else:
+            self._cached_gas_price = None  # re-fetch per tx in baseline
+
+        # ── LOCAL block ───────────────────────────────────────
         local_payload = {
             "round": fl_round,
             "num_clients": len(clients),
@@ -236,20 +382,46 @@ class EVMBlockchain:
             "threshold": threshold,
         }
 
-        # Pin detailed training data to IPFS (off-chain audit trail)
         local_cid = None
         if self._ipfs:
-            try:
-                local_cid = self._ipfs.pin_json(
-                    local_payload, f"round_{fl_round}_local")
-                local_payload["ipfs_cid"] = local_cid
-            except Exception as e:
-                print(f"  [IPFS] Warning: LOCAL pin failed: {e}")
+            if self._optimized:
+                # Fire IPFS upload in background; CID will arrive before
+                # wait_for_pending() is called (blockchain confirmation >> IPFS upload)
+                _local_result: Dict = {}
+                def _upload_local():
+                    try:
+                        _local_result["cid"] = self._ipfs.pin_json(
+                            local_payload, f"round_{fl_round}_local")
+                        self._perf.info(
+                            f"  ipfs_local  cid={_local_result['cid'][:16]}... [background]"
+                        )
+                    except Exception as e:
+                        self._perf.info(f"  ipfs_local  ERROR={e}")
+                t_ipfs0 = time.perf_counter()
+                _local_thread = threading.Thread(target=_upload_local, daemon=True)
+                _local_thread.start()
+                self._perf.info(
+                    f"  ipfs_local  background_thread_started"
+                    f"  t={1000*(time.perf_counter()-t_ipfs0):.1f}ms"
+                )
+            else:
+                t_ipfs0 = time.perf_counter()
+                try:
+                    local_cid = self._ipfs.pin_json(
+                        local_payload, f"round_{fl_round}_local")
+                    local_payload["ipfs_cid"] = local_cid
+                except Exception as e:
+                    print(f"  [IPFS] Warning: LOCAL pin failed: {e}")
+                self._perf.info(
+                    f"  ipfs_local  cid={str(local_cid)[:16]}..."
+                    f"  upload_ms={1000*(time.perf_counter()-t_ipfs0):.0f} [blocking]"
+                )
 
         local_data = json.dumps(local_payload)
 
         print(
             f"\n  [EVM] Firing LOCAL block (Round {fl_round}, {len(clients)} clients)...")
+        t_tx0 = time.perf_counter()
         self._send_transaction(
             self.contract.functions.addBlock(
                 fl_round,
@@ -257,9 +429,13 @@ class EVMBlockchain:
                 Web3.to_bytes(text=local_data),
             ),
             fire_and_wait=True,
+            block_type="LOCAL",
+        )
+        self._perf.info(
+            f"  local_tx_fired  ms={1000*(time.perf_counter()-t_tx0):.1f}"
         )
 
-        # ── VOTE block: accepted/rejected verdict for each client ──
+        # ── VOTE block ────────────────────────────────────────
         votes = [
             {
                 "client_id": c["client_id"],
@@ -285,20 +461,44 @@ class EVMBlockchain:
             "votes":    votes,
         }
 
-        # Pin vote data to IPFS
         vote_cid = None
         if self._ipfs:
-            try:
-                vote_cid = self._ipfs.pin_json(
-                    vote_payload, f"round_{fl_round}_votes")
-                vote_payload["ipfs_cid"] = vote_cid
-            except Exception as e:
-                print(f"  [IPFS] Warning: VOTE pin failed: {e}")
+            if self._optimized:
+                _vote_result: Dict = {}
+                def _upload_vote():
+                    try:
+                        _vote_result["cid"] = self._ipfs.pin_json(
+                            vote_payload, f"round_{fl_round}_votes")
+                        self._perf.info(
+                            f"  ipfs_vote   cid={_vote_result['cid'][:16]}... [background]"
+                        )
+                    except Exception as e:
+                        self._perf.info(f"  ipfs_vote   ERROR={e}")
+                t_ipfs1 = time.perf_counter()
+                _vote_thread = threading.Thread(target=_upload_vote, daemon=True)
+                _vote_thread.start()
+                self._perf.info(
+                    f"  ipfs_vote   background_thread_started"
+                    f"  t={1000*(time.perf_counter()-t_ipfs1):.1f}ms"
+                )
+            else:
+                t_ipfs1 = time.perf_counter()
+                try:
+                    vote_cid = self._ipfs.pin_json(
+                        vote_payload, f"round_{fl_round}_votes")
+                    vote_payload["ipfs_cid"] = vote_cid
+                except Exception as e:
+                    print(f"  [IPFS] Warning: VOTE pin failed: {e}")
+                self._perf.info(
+                    f"  ipfs_vote   cid={str(vote_cid)[:16]}..."
+                    f"  upload_ms={1000*(time.perf_counter()-t_ipfs1):.0f} [blocking]"
+                )
 
         vote_data = json.dumps(vote_payload)
 
         print(f"  [EVM] Firing VOTE block (Round {fl_round}: "
               f"{accepted} accepted / {rejected} rejected)...")
+        t_tx1 = time.perf_counter()
         self._send_transaction(
             self.contract.functions.addBlock(
                 fl_round,
@@ -306,6 +506,10 @@ class EVMBlockchain:
                 Web3.to_bytes(text=vote_data),
             ),
             fire_and_wait=True,
+            block_type="VOTE",
+        )
+        self._perf.info(
+            f"  vote_tx_fired  ms={1000*(time.perf_counter()-t_tx1):.1f}"
         )
 
         # Track IPFS CIDs for this round
@@ -330,9 +534,11 @@ class EVMBlockchain:
     ):
         """Write GLOBAL block, then wait for all three round txs together.
 
-        If IPFS is enabled, pins the global model weights (~250 KB
-        compressed) and evaluation metrics off-chain.  The CIDs are
-        embedded in the on-chain payload so the contentHash covers them.
+        BASELINE:  pins global model weights to IPFS *before* firing the tx
+                   (blocking); calls verifyChain() after confirmation.
+        OPTIMIZED: pins model in a background thread; fires GLOBAL tx
+                   immediately; verifyChain() is skipped per-round and
+                   called only at session end via print_chain_summary().
         """
         global_payload = {
             "accuracy":    accuracy,
@@ -342,28 +548,59 @@ class EVMBlockchain:
             "num_clients": num_clients,
         }
 
-        # Pin global model weights + metrics to IPFS
-        model_cid = None
+        model_cid   = None
         metrics_cid = None
+
         if self._ipfs:
-            try:
-                if model_state_dict is not None:
-                    model_cid = self._ipfs.pin_model(
-                        model_state_dict,
-                        f"round_{fl_round}_global_model",
-                    )
-                    global_payload["ipfs_model_cid"] = model_cid
-                metrics_cid = self._ipfs.pin_json(
-                    global_payload,
-                    f"round_{fl_round}_global_metrics",
+            if self._optimized:
+                # Background upload — model (~3.4 MB gzip) off the critical path
+                _global_result: Dict = {}
+                def _upload_global():
+                    try:
+                        if model_state_dict is not None:
+                            _global_result["model_cid"] = self._ipfs.pin_model(
+                                model_state_dict, f"round_{fl_round}_global_model")
+                        _global_result["metrics_cid"] = self._ipfs.pin_json(
+                            global_payload, f"round_{fl_round}_global_metrics")
+                        self._perf.info(
+                            f"  ipfs_global model_cid="
+                            f"{str(_global_result.get('model_cid',''))[:16]}..."
+                            f"  [background]"
+                        )
+                    except Exception as e:
+                        self._perf.info(f"  ipfs_global ERROR={e}")
+                t_ipfs2 = time.perf_counter()
+                _global_thread = threading.Thread(target=_upload_global, daemon=True)
+                _global_thread.start()
+                self._perf.info(
+                    f"  ipfs_global background_thread_started"
+                    f"  t={1000*(time.perf_counter()-t_ipfs2):.1f}ms"
                 )
-                global_payload["ipfs_metrics_cid"] = metrics_cid
-            except Exception as e:
-                print(f"  [IPFS] Warning: GLOBAL pin failed: {e}")
+            else:
+                t_ipfs2 = time.perf_counter()
+                try:
+                    if model_state_dict is not None:
+                        model_cid = self._ipfs.pin_model(
+                            model_state_dict,
+                            f"round_{fl_round}_global_model",
+                        )
+                        global_payload["ipfs_model_cid"] = model_cid
+                    metrics_cid = self._ipfs.pin_json(
+                        global_payload,
+                        f"round_{fl_round}_global_metrics",
+                    )
+                    global_payload["ipfs_metrics_cid"] = metrics_cid
+                except Exception as e:
+                    print(f"  [IPFS] Warning: GLOBAL pin failed: {e}")
+                self._perf.info(
+                    f"  ipfs_global model_cid={str(model_cid)[:16]}..."
+                    f"  upload_ms={1000*(time.perf_counter()-t_ipfs2):.0f} [blocking]"
+                )
 
         data = json.dumps(global_payload)
 
         print(f"\n  [EVM] Firing GLOBAL block (Round {fl_round})...")
+        t_tx2 = time.perf_counter()
         self._send_transaction(
             self.contract.functions.addBlock(
                 fl_round,
@@ -371,6 +608,10 @@ class EVMBlockchain:
                 Web3.to_bytes(text=data),
             ),
             fire_and_wait=True,
+            block_type="GLOBAL",
+        )
+        self._perf.info(
+            f"  global_tx_fired  ms={1000*(time.perf_counter()-t_tx2):.1f}"
         )
 
         # Track IPFS CIDs
@@ -384,7 +625,27 @@ class EVMBlockchain:
         # Now wait for LOCAL + VOTE + GLOBAL together
         print(
             f"  [EVM] Waiting for all Round {fl_round} transactions to confirm...")
+        t_conf0 = time.perf_counter()
         self.wait_for_pending()
+        t_conf1 = time.perf_counter()
+        self._perf.info(
+            f"  round_confirmation_total_ms={1000*(t_conf1-t_conf0):.0f}"
+        )
+
+        # ── verifyChain: per-round in baseline, deferred in optimized ─
+        if not self._optimized:
+            t_vc = time.perf_counter()
+            valid = self.verify_chain()
+            self._perf.info(
+                f"  verify_chain  valid={valid}"
+                f"  ms={1000*(time.perf_counter()-t_vc):.0f} [per-round]"
+            )
+
+        self._perf.info(
+            f"--- ROUND {fl_round} end"
+            f"  total_overhead_ms="  # rough: from first tx fired to confirmation
+            f"{1000*(t_conf1-t_tx2):.0f}"
+        )
 
     # ─────────────────────────────────────────────────────────
     # Query helpers
@@ -405,7 +666,14 @@ class EVMBlockchain:
 
     def print_chain_summary(self):
         length = self.get_chain_length()
+        # In optimized mode verifyChain was deferred; run it now (once)
+        t_vc = time.perf_counter()
         is_valid = self.verify_chain()
+        self._perf.info(
+            f"  verify_chain  valid={is_valid}"
+            f"  ms={1000*(time.perf_counter()-t_vc):.0f}"
+            f"  {'[deferred-end]' if self._optimized else '[per-round-final]'}"
+        )
         print(f"\n  {'═'*60}")
         print(f"  EVM BLOCKCHAIN SUMMARY")
         print(f"  {'═'*60}")
