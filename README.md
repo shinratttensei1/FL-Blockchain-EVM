@@ -22,7 +22,7 @@
 8. [Setup & Installation](#setup--installation)
 9. [Configuration](#configuration)
 10. [Launching the Experiment](#launching-the-experiment)
-11. [Outputs & Results](#outputs--results)
+11. [Outputs](#outputs)
 12. [Blockchain Middleware Optimisation](#blockchain-middleware-optimisation)
 13. [Smart Contract](#smart-contract)
 14. [Limitations & Future Work](#limitations--future-work)
@@ -46,7 +46,7 @@ This project implements a **federated learning (FL) system** for wearable-sensor
 
 **10 subjects** participate in the federation: subjects 1–8 train on **8 Raspberry Pi 4 edge devices** (one subject per device), while subjects 9–10 form a held-out test set evaluated only by the central server. A central server aggregates the models each round, evaluates the global model on the held-out test, and writes an immutable summary to the blockchain.
 
-**Achieved results (10 rounds):** peak accuracy **91.6%**, macro-F1 **91.7%**, macro-AUC **99.7%** at round 7.
+**Training setup:** 10 FL rounds, 8 clients (one per training subject), 1 local epoch per round, `AdamW` lr=0.002. Results are recorded to `outputs/results.json` after each run.
 
 ---
 
@@ -515,7 +515,7 @@ bc.print_chain_summary()
 
 ---
 
-## Outputs & Results
+## Outputs
 
 After a successful run the following files are created:
 
@@ -575,49 +575,84 @@ model.load_state_dict(torch.load("final_model.pt", map_location="cpu"))
 model.eval()
 ```
 
-### Training Results (10 rounds, 8 Raspberry Pi 4 clients)
-
-| Round | Accuracy | Macro-F1 | Macro-AUC | Loss  | Chain Blocks |
-|------:|:--------:|:--------:|:---------:|:-----:|:------------:|
-| 0     | 10.9%    | 3.3%     | 55.0%     | 2.483 | 98           |
-| 1     | 49.0%    | 42.0%    | 92.4%     | 2.177 | 101          |
-| 2     | 62.6%    | 61.3%    | 97.0%     | 1.227 | 104          |
-| 3     | 80.9%    | 77.7%    | 97.5%     | 0.850 | 107          |
-| 4     | 85.8%    | 83.5%    | 94.6%     | 0.779 | 110          |
-| 5     | 90.9%    | 90.9%    | 95.9%     | 0.520 | 113          |
-| 6     | 90.7%    | 90.5%    | 97.8%     | 0.491 | 116          |
-| **7** | **91.6%**| **91.7%**| **99.7%** |**0.343**| **119**   |
-| 8     | 90.1%    | 90.0%    | 98.4%     | 0.432 | 122          |
-| 9     | 88.9%    | 88.2%    | 99.9%     | 0.354 | 125          |
-| 10    | 91.4%    | 91.3%    | 100.0%    | 0.273 | 128          |
-
-Peak performance at **round 7**: 91.6% accuracy, 91.7% macro-F1, 99.7% macro-AUC. Each round writes exactly 3 blocks to Base mainnet (LOCAL + VOTE + GLOBAL), totalling 30 transactions and ~42 IPFS pins per 10-round session.
-
----
-
 ## Blockchain Middleware Optimisation
 
-The `EVMBlockchain` class supports two operating modes controlled by a single environment variable in `.env`:
+The `EVMBlockchain` class (`fl_blockchain_evm/infra/blockchain.py`) supports two operating modes — **baseline** and **optimised** — controlled by a single environment variable. The primary purpose is to allow a controlled, reproducible comparison of blockchain middleware overhead across FL training runs.
+
+### Enabling the modes
+
+Add this to your `.env` file before running:
 
 ```env
-BLOCKCHAIN_OPTIMIZED=0   # baseline  — estimate_gas + fresh gas_price per tx
-BLOCKCHAIN_OPTIMIZED=1   # optimised — lazy gas cache + round-level gas_price + async IPFS
+# Baseline: every transaction does its own estimate_gas + gas_price RPC calls,
+# IPFS uploads block the FL critical path, and verifyChain() runs after each round.
+BLOCKCHAIN_OPTIMIZED=0
+
+# Optimised: lazy gas-limit cache, round-level gas_price, async IPFS, deferred verify.
+BLOCKCHAIN_OPTIMIZED=1
 ```
 
-**What the optimised mode changes:**
+### What changes between modes
 
-| Optimisation | Baseline | Optimised |
-|---|---|---|
-| **O1 — Gas-limit estimation** | `eth_estimateGas` every tx (3 RPC calls/round) | Estimate once per block-type (round 0), cache × 1.25 headroom, reuse from round 1 |
-| **O2 — Gas price** | `eth_gasPrice` fetched per tx (3 calls/round) | Fetched once at round start, cached for all 3 txs |
-| **O3 — IPFS uploads** | Blocking on critical path before tx fire | Background daemon thread — completes during 10–30 s confirmation wait |
-| **O4 — Chain verification** | `verifyChain()` after every round | Deferred to session end only |
+| # | Overhead source | Baseline behaviour | Optimised behaviour |
+|---|---|---|---|
+| **O1** | Gas-limit estimation | `eth_estimateGas` RPC called before **every** transaction (3 calls/round, ~25–45 ms each) | `eth_estimateGas` called **once per block-type** on first use; result × 1.25 headroom is cached and reused for all subsequent rounds → 0 RPC calls from round 1 onwards |
+| **O2** | Gas price | `eth_gasPrice` fetched before **every** transaction (3 calls/round, ~15–30 ms each) | Fetched **once per round** at the start of the blockchain pipeline, cached for all 3 transactions |
+| **O3** | IPFS uploads | Model checkpoint + metrics uploaded to Pinata **synchronously** on the FL critical path before the transaction is fired (200–800 ms blocking) | Uploads dispatched to **background daemon threads** immediately; the blockchain transaction is fired without waiting. Upload finishes during the 10–30 s on-chain confirmation window → 0 ms added to critical path |
+| **O4** | Chain verification | `verifyChain()` called on-chain **after every round** (grows as O(N) with chain length) | `verifyChain()` **deferred to session end** only — runs once inside `print_chain_summary()` |
 
-**Per-round timing logs** are written automatically to `outputs/`:
-- `outputs/perf_baseline_YYYYMMDD_HHMMSS.log`
-- `outputs/perf_optimized_YYYYMMDD_HHMMSS.log`
+> Both modes produce **identical semantic outputs**: 3 transactions per round, the same IPFS artifacts, the same on-chain data. Only timing and blocking behaviour differ.
 
-Each log entry includes sub-millisecond timestamps for gas estimation, gas price fetch, tx submission, IPFS upload, and confirmation latency — enabling direct baseline vs. optimised comparison without manual instrumentation.
+### Performance logger
+
+Every run — regardless of mode — automatically creates a structured timing log in `outputs/`:
+
+```
+outputs/perf_baseline_YYYYMMDD_HHMMSS.log   (when BLOCKCHAIN_OPTIMIZED=0)
+outputs/perf_optimized_YYYYMMDD_HHMMSS.log  (when BLOCKCHAIN_OPTIMIZED=1)
+```
+
+**Log format** (one entry per event, with sub-millisecond timestamps):
+
+```
+HH:MM:SS.ffffff  === FL-Blockchain Performance Log ===
+HH:MM:SS.ffffff  Mode     : BASELINE | OPTIMIZED
+HH:MM:SS.ffffff  Started  : 2026-04-21T15:43:27.123456
+HH:MM:SS.ffffff  --------------------------------------------------
+HH:MM:SS.ffffff  --- ROUND 1 start  mode=BASE
+HH:MM:SS.ffffff    gas_limit  type=LOCAL   estimated=81432  estimate_ms=32.1
+HH:MM:SS.ffffff    gas_price  fetched=1500000  fetch_ms=18.4
+HH:MM:SS.ffffff    tx_sent    type=LOCAL   hash=0xabc123...  send_ms=8.1
+HH:MM:SS.ffffff    gas_limit  type=VOTE    estimated=74512  estimate_ms=28.7
+HH:MM:SS.ffffff    gas_price  fetched=1500000  fetch_ms=19.2
+HH:MM:SS.ffffff    tx_sent    type=VOTE    hash=0xdef456...  send_ms=7.9
+HH:MM:SS.ffffff    gas_limit  type=GLOBAL  estimated=118640  estimate_ms=41.3
+HH:MM:SS.ffffff    gas_price  fetched=1502000  fetch_ms=21.0
+HH:MM:SS.ffffff    tx_sent    type=GLOBAL  hash=0x789abc...  send_ms=9.4
+HH:MM:SS.ffffff    confirmed  idx=0  block=44901234  submit_to_confirm_ms=12450
+HH:MM:SS.ffffff    confirmed  idx=1  block=44901235  submit_to_confirm_ms=14100
+HH:MM:SS.ffffff    confirmed  idx=2  block=44901238  submit_to_confirm_ms=18320
+HH:MM:SS.ffffff    wait_for_pending  n=3  total_wait_ms=18350
+HH:MM:SS.ffffff  --- ROUND 1 end  total_overhead_ms=18612
+```
+
+In optimised mode, `estimate_ms` lines are replaced by `cached=<value>  saved_rpc_ms=~30` and gas_price shows `cached=<value>  saved_rpc_ms=~20`, making it straightforward to diff the two log files.
+
+### Running a comparison
+
+```bash
+# Run 1 — baseline
+BLOCKCHAIN_OPTIMIZED=0 flwr run .
+# Produces: outputs/perf_baseline_<timestamp>.log
+
+# Run 2 — optimised
+BLOCKCHAIN_OPTIMIZED=1 flwr run .
+# Produces: outputs/perf_optimized_<timestamp>.log
+
+# Quick comparison (total overhead per round)
+grep "ROUND.*end" outputs/perf_baseline_*.log
+grep "ROUND.*end" outputs/perf_optimized_*.log
+```
 
 ---
 
