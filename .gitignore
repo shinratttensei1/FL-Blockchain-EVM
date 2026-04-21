@@ -10,7 +10,19 @@ __pycache__/
 *.so
 
 .claude
-# Output files
+# Output files and runtime state
+management_store.json
+benchmark_results.json
+*.bak
+status
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Reference PDFs / paper drafts (keep local only)
+example papers/
+paper/
 
 metrics/
 outputs/
