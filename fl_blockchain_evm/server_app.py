@@ -1,5 +1,6 @@
 import json
 import os
+import time as _time
 from datetime import datetime
 from typing import Dict
 
@@ -21,9 +22,29 @@ from fl_blockchain_evm.task import Net, test as test_fn, load_data, SC_NAMES, NU
 from fl_blockchain_evm.utils import get_device, print_table
 
 G, Y, C, R = '\033[92m', '\033[93m', '\033[96m', '\033[0m'
+
+# ── Per-run output directory ──────────────────────────────────────────────────
+# Set EXPERIMENT_VARIANT=baseline or EXPERIMENT_VARIANT=optimized in the shell
+# (or .env) before launching.  Each run gets its own timestamped subfolder so
+# results never collide:
+#   outputs/baseline_20260422_143022/
+#   outputs/optimized_20260422_153011/
+_VARIANT  = os.getenv("EXPERIMENT_VARIANT", "experiment")
+_RUN_TS   = datetime.now().strftime("%Y%m%d_%H%M%S")
+_OUT_DIR  = f"outputs/{_VARIANT}_{_RUN_TS}"
+os.makedirs(_OUT_DIR, exist_ok=True)
 os.makedirs("outputs", exist_ok=True)
 
-# Tee all stdout/stderr to outputs/fl_server.log so every print is persisted
+# Keep outputs/latest as a convenience symlink to the most-recent run
+_LATEST = "outputs/latest"
+try:
+    if os.path.islink(_LATEST):
+        os.unlink(_LATEST)
+    os.symlink(os.path.abspath(_OUT_DIR), _LATEST)
+except Exception:
+    pass  # non-fatal on Windows or restricted filesystems
+
+# Tee all stdout/stderr to outputs/<run>/fl_server.log so every print is persisted
 import sys as _sys
 import io as _io
 
@@ -44,9 +65,41 @@ class _Tee(_io.TextIOBase):
     def flush(self):
         self._orig.flush()
 
-_LOG_PATH = "outputs/fl_server.log"
+_LOG_PATH = f"{_OUT_DIR}/fl_server.log"
 _sys.stdout = _Tee(_sys.stdout, _LOG_PATH)
 _sys.stderr = _Tee(_sys.stderr, _LOG_PATH)
+
+# ── Experiment config snapshot ────────────────────────────────────────────────
+# Written once at startup so every run folder is self-contained.
+# Collect pyproject.toml config values (best-effort).
+_pyproject_cfg: Dict = {}
+try:
+    import tomllib as _tomllib
+    with open("pyproject.toml", "rb") as _f:
+        _pt = _tomllib.load(_f)
+    _pyproject_cfg = (_pt.get("tool", {}).get("flwr", {})
+                         .get("app", {}).get("config", {}))
+except Exception:
+    pass
+
+_EXPERIMENT_CONFIG: Dict = {
+    "variant":              _VARIANT,
+    "run_timestamp":        _RUN_TS,
+    "output_dir":           _OUT_DIR,
+    "blockchain_optimized": os.getenv("BLOCKCHAIN_OPTIMIZED", "0") == "1",
+    "ipfs_backend":         os.getenv("IPFS_BACKEND", "disabled"),
+    "hardware_note":        os.getenv("HARDWARE_NOTE", "8x RPi4, WiFi 2.4GHz"),
+    "num_rounds":           int(_pyproject_cfg.get("num-server-rounds", 10)),
+    "num_clients":          8,
+    "local_epochs":         int(_pyproject_cfg.get("local-epochs", 1)),
+    "batch_size":           int(_pyproject_cfg.get("batch-size", 256)),
+    "lr":                   float(_pyproject_cfg.get("lr", 0.002)),
+    "started_at":           datetime.now().isoformat(),
+}
+with open(f"{_OUT_DIR}/experiment_config.json", "w") as _f:
+    json.dump(_EXPERIMENT_CONFIG, _f, indent=2)
+print(f"[SETUP] Run output dir : {_OUT_DIR}")
+print(f"[SETUP] Variant        : {_VARIANT}")
 
 SC_LABELS = [
     'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
@@ -63,7 +116,7 @@ def _init_blockchain():
     global _blockchain
     if _blockchain is None:
         try:
-            _blockchain = FLBlockchain()
+            _blockchain = FLBlockchain(output_dir=_OUT_DIR)
         except (ValueError, ConnectionError) as e:
             print(f"\n{Y}[WARNING] Blockchain unavailable: {e}{R}")
             print(f"{Y}Continuing without blockchain recording...{R}\n")
@@ -76,6 +129,7 @@ _round_state: Dict = {
     "loss_mean":      0.0,
     "loss_std":       0.0,
     "threshold":      0.0,
+    "round_start_t":  0.0,   # wall-clock time when training results arrived
 }
 
 
@@ -88,7 +142,7 @@ def _plot_cm(cm, rnd, acc, f1):
     plt.title(f'Confusion Matrix — Round {rnd}\nAcc: {acc:.2%} | F1: {f1:.4f}')
     plt.ylabel('True')
     plt.xlabel('Predicted')
-    plt.savefig(f"outputs/cm_round_{rnd}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"{_OUT_DIR}/cm_round_{rnd}.png", dpi=150, bbox_inches='tight')
     plt.close()
 
 
@@ -99,6 +153,9 @@ def global_evaluate(server_round, arrays, config=None):
     dev = get_device()
     model.load_state_dict(arrays.to_torch_state_dict())
     model.to(dev)
+
+    # ── Model payload size (bytes sent to each client, FP32 weights) ──────
+    model_payload_bytes = sum(p.numel() * 4 for p in model.parameters())
 
     _, testloader = load_data(0, 8, beta=0)
     m = test_fn(model, testloader, dev)
@@ -164,6 +221,7 @@ def global_evaluate(server_round, arrays, config=None):
         "per_class_auc", "per_class_support", "confusion_matrix",
         "num_samples", "num_classes",
     ]}
+    round_wall_time_s = round(_time.time() - _round_state["round_start_t"], 2)
     log.update({
         "round":               server_round,
         "type":                "global",
@@ -171,11 +229,16 @@ def global_evaluate(server_round, arrays, config=None):
         "superclass_names":    SC_NAMES,
         "optimal_thresholds":  m.get("optimal_thresholds", [0.5] * NUM_CLASSES),
         "blockchain_blocks":   chain_length if bc is not None else 0,
+        "round_wall_time_s":   round_wall_time_s,
+        "model_payload_bytes": model_payload_bytes,
+        "variant":             _VARIANT,
     })
     # Include IPFS CIDs if available (already handled above)
     if round_cids:
         log["ipfs_cids"] = round_cids
-    with open("outputs/results.json", "a") as f:
+    print(f"  [TIMING] Round wall time: {round_wall_time_s:.1f}s | "
+          f"Model payload: {model_payload_bytes/1024:.0f} KB")
+    with open(f"{_OUT_DIR}/results.json", "a") as f:
         json.dump(log, f)
         f.write("\n")
 
@@ -195,6 +258,7 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     rnd = _rnd["train"]
     _round_state["current_round"] = rnd
 
+    _round_state["round_start_t"] = _time.time()
     live_state.round_started(rnd)
 
     data = []
@@ -207,6 +271,9 @@ def train_metrics_aggregation(metrics_list, weighting_key):
             "num_examples":   int(met.get("num-examples", 0)),
             "training_time":  float(met.get("training_time_seconds", 0)),
             "active_classes": int(met.get("active_classes", 0)),
+            "cpu_percent":    float(met.get("cpu_percent", -1.0)),
+            "ram_used_mb":    float(met.get("ram_used_mb", -1.0)),
+            "cpu_temp_c":     float(met.get("cpu_temp_c", -1.0)),
         })
 
     _round_state["train_results"] = data
@@ -260,7 +327,7 @@ def train_metrics_aggregation(metrics_list, weighting_key):
     # ── Live state update ──
     live_state.clients_trained(data, loss_mean, loss_std, threshold, votes)
 
-    with open("outputs/results.json", "a") as f:
+    with open(f"{_OUT_DIR}/results.json", "a") as f:
         json.dump({
             "round":      rnd,
             "type":       "device_training",
@@ -295,11 +362,14 @@ def weighted_average(metrics_list, weighting_key):
     for m in sorted(metrics_list,
                     key=lambda x: int(x["metrics"]["client_id"])):
         met = m["metrics"]
-        data.append({
-            k: float(met[k]) if k != "client_id" else int(met[k])
-            for k in ["client_id", "eval_loss", "eval_acc",
-                      "eval_f1", "eval_auc", "num-examples"]
-        })
+        d = {k: float(met[k]) if k != "client_id" else int(met[k])
+             for k in ["client_id", "eval_loss", "eval_acc",
+                       "eval_f1", "eval_auc", "num-examples"]}
+        # Include per-client eval time and device stats if reported
+        for _opt_key in ("eval_time_seconds", "cpu_percent", "ram_used_mb", "cpu_temp_c"):
+            if _opt_key in met:
+                d[_opt_key] = float(met[_opt_key])
+        data.append(d)
 
     print(f"\n{G}  ROUND {rnd} EVALUATION: {len(data)} devices{R}")
     print_table(
@@ -310,7 +380,7 @@ def weighted_average(metrics_list, weighting_key):
         ["Device", "Loss", "Acc", "F1", "AUC", "N"],
     )
 
-    with open("outputs/results.json", "a") as f:
+    with open(f"{_OUT_DIR}/results.json", "a") as f:
         json.dump([{
             "type":      "client_eval",
             "round":     rnd,
@@ -338,8 +408,8 @@ def main(grid: Grid, context: Context):
     num_rounds = int(  context.run_config.get("num-server-rounds", os.getenv("NUM_ROUNDS",   "10")))
     frac       = float(context.run_config.get("fraction-train",    os.getenv("FRACTION_TRAIN","1.0")))
 
-    if os.path.exists("outputs/results.json"):
-        os.remove("outputs/results.json")
+    if os.path.exists(f"{_OUT_DIR}/results.json"):
+        os.remove(f"{_OUT_DIR}/results.json")
 
     # ── Init blockchain ──
     bc = _init_blockchain()
@@ -377,4 +447,4 @@ def main(grid: Grid, context: Context):
 
     torch.save(result.arrays.to_torch_state_dict(), "final_model.pt")
     print(f"\n{G}   Done. Model  -> final_model.pt")
-    print(f"    Metrics -> outputs/results.json{R}")
+    print(f"    Metrics -> {_OUT_DIR}/results.json{R}")

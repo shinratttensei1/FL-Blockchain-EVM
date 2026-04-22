@@ -28,12 +28,12 @@ from dotenv import load_dotenv
 
 # ── Performance logger ───────────────────────────────────────
 
-def _make_perf_logger(optimized: bool) -> logging.Logger:
+def _make_perf_logger(optimized: bool, output_dir: str = "outputs") -> logging.Logger:
     """Create a file logger for per-round timing comparison."""
-    os.makedirs("outputs", exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     tag = "optimized" if optimized else "baseline"
     ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = f"outputs/perf_{tag}_{ts}.log"
+    path = f"{output_dir}/perf_{tag}_{ts}.log"
 
     logger = logging.getLogger(f"fl_perf_{tag}_{ts}")
     logger.setLevel(logging.DEBUG)
@@ -89,10 +89,10 @@ if not _env_loaded:
 class EVMBlockchain:
     """Wrapper for FLBlockchain smart contract."""
 
-    def __init__(self):
+    def __init__(self, output_dir: str = "outputs"):
         # ── Optimized mode flag ───────────────────────────────
         self._optimized = os.getenv("BLOCKCHAIN_OPTIMIZED", "0").strip() == "1"
-        self._perf = _make_perf_logger(self._optimized)
+        self._perf = _make_perf_logger(self._optimized, output_dir)
         self._perf.info(f"BLOCKCHAIN_OPTIMIZED = {self._optimized}")
 
         # Load config
