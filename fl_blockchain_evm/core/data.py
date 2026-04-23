@@ -257,11 +257,21 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     print(f"  [MHEALTH] Partition {partition_id}: "
           f"subjects={sorted(my_subjects)}, windows={len(X_part)}")
 
-    # Z-score normalize per channel using partition train statistics
-    mu       = X_part.mean(axis=(0, 2), keepdims=True)
-    sd       = X_part.std(axis=(0, 2), keepdims=True) + 1e-8
+    # Use shared normalization stats across all train subjects by default.
+    # Per-partition normalization can put each client into a different feature
+    # space, which hurts FedAvg on strongly non-IID subject splits.
+    use_global_norm = os.getenv("FL_GLOBAL_NORM", "1") == "1"
+    if use_global_norm:
+        mu = X_tr.mean(axis=(0, 2), keepdims=True)
+        sd = X_tr.std(axis=(0, 2), keepdims=True) + 1e-8
+    else:
+        mu = X_part.mean(axis=(0, 2), keepdims=True)
+        sd = X_part.std(axis=(0, 2), keepdims=True) + 1e-8
+
     X_part_n = (X_part - mu) / sd
     X_te_n   = (X_te   - mu) / sd
+
+    print(f"  [MHEALTH] Normalization: {'global-train' if use_global_norm else 'partition-local'}")
 
     # One-hot encode labels
     y_part_oh = np.eye(NUM_CLASSES, dtype=np.float32)[y_part]   # (N, 12)

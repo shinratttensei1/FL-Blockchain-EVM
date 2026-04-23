@@ -41,14 +41,10 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
     opt       = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
 
     total_steps = epochs * len(trainloader)
-    warmup      = max(total_steps // 10, 1)
     n_batches   = len(trainloader)
 
     def lr_fn(step):
-        if step < warmup:
-            return step / warmup
-        return 0.5 * (1 + np.cos(
-            np.pi * (step - warmup) / max(total_steps - warmup, 1)))
+        return 0.5 * (1 + np.cos(np.pi * step / max(total_steps, 1)))
 
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_fn)
 

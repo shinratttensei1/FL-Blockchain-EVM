@@ -132,6 +132,8 @@ _round_state: Dict = {
     "round_start_t":  0.0,   # wall-clock time when training results arrived
 }
 
+_EVAL_NUM_PARTITIONS = int(os.getenv("NUM_PARTITIONS", "8"))
+
 
 def _plot_cm(cm, rnd, acc, f1):
     if isinstance(cm, list):
@@ -157,7 +159,7 @@ def global_evaluate(server_round, arrays, config=None):
     # ── Model payload size (bytes sent to each client, FP32 weights) ──────
     model_payload_bytes = sum(p.numel() * 4 for p in model.parameters())
 
-    _, testloader = load_data(0, 8, beta=0)
+    _, testloader = load_data(0, _EVAL_NUM_PARTITIONS, beta=0)
     m = test_fn(model, testloader, dev)
 
     print(f"\n{Y}{'═'*60}{R}")
@@ -403,10 +405,15 @@ app = ServerApp()
 
 @app.main()
 def main(grid: Grid, context: Context):
+    global _EVAL_NUM_PARTITIONS
+
     # run_config from pyproject.toml; env vars as fallback for flower-server-app direct use
     lr         = float(context.run_config.get("lr",               os.getenv("LR",           "0.002")))
     num_rounds = int(  context.run_config.get("num-server-rounds", os.getenv("NUM_ROUNDS",   "10")))
     frac       = float(context.run_config.get("fraction-train",    os.getenv("FRACTION_TRAIN","1.0")))
+    _EVAL_NUM_PARTITIONS = int(context.run_config.get(
+        "num-partitions", os.getenv("NUM_PARTITIONS", str(_EVAL_NUM_PARTITIONS))
+    ))
 
     if os.path.exists(f"{_OUT_DIR}/results.json"):
         os.remove(f"{_OUT_DIR}/results.json")
@@ -429,6 +436,7 @@ def main(grid: Grid, context: Context):
     print(f"\n{C}{'═'*60}")
     print(f"  12 Activities (MHEALTH): {', '.join(SC_NAMES)}")
     print(f"  Rounds: {num_rounds} | LR: {lr} | Device: {get_device()}")
+    print(f"  Eval partitioning: {_EVAL_NUM_PARTITIONS} partitions")
     print(f"  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)")
     print(f"  IPFS:       {ipfs_status}")
     print(f"  Dashboard:  open dashboard.html in your browser")
@@ -442,8 +450,11 @@ def main(grid: Grid, context: Context):
         evaluate_fn=global_evaluate,
     )
 
-    live_state.done(_blockchain.get_chain_length())
-    _blockchain.print_chain_summary()
+    bc = _init_blockchain()
+    chain_len = bc.get_chain_length() if bc is not None else 0
+    live_state.done(chain_len)
+    if bc is not None:
+        bc.print_chain_summary()
 
     torch.save(result.arrays.to_torch_state_dict(), "final_model.pt")
     print(f"\n{G}   Done. Model  -> final_model.pt")

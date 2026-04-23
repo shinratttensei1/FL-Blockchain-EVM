@@ -40,8 +40,9 @@ clientapp = "fl_blockchain_evm.client_app:app"
 num-server-rounds = 10
 fraction-train = 1.0
 lr = 0.002
-local-epochs = 1
-batch-size = 256
+local-epochs = 5
+batch-size = 64
+num-partitions = 8
 
 # Default federation to use when running the app
 

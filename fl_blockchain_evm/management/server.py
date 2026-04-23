@@ -65,7 +65,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-RESULTS_FILE = Path("outputs/results.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LATEST_RESULTS_FILE = PROJECT_ROOT / "outputs" / "latest" / "results.json"
+RESULTS_FILE = Path(os.getenv("FL_RESULTS_FILE", str(LATEST_RESULTS_FILE))).expanduser()
 
 # ── Training process state ─────────────────────────────────────
 

@@ -11,15 +11,18 @@ API reference:
 """
 
 import sys
+import os
 
 
 def main() -> None:
+  port = int(os.getenv("DASHBOARD_PORT", os.getenv("PORT", "8080")))
+
     print("=" * 58)
     print("  FL·CHAIN — Management Server")
     print("=" * 58)
-    print("  Management console : http://localhost:8080/")
-    print("  Live monitor       : http://localhost:8080/monitor")
-    print("  API docs           : http://localhost:8080/docs")
+  print(f"  Management console : http://localhost:{port}/")
+  print(f"  Live monitor       : http://localhost:{port}/monitor")
+  print(f"  API docs           : http://localhost:{port}/docs")
     print("  Press Ctrl+C to stop")
     print("=" * 58)
 
@@ -27,7 +30,7 @@ def main() -> None:
         import uvicorn
         from fl_blockchain_evm.management.server import app
 
-        uvicorn.run(app, host="0.0.0.0", port=8081, reload=False)
+        uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
     except ImportError as exc:
         print(f"\nImport error: {exc}")
         print("\nInstall missing packages:")

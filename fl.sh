@@ -1,38 +1,50 @@
 #!/usr/bin/env bash
 # fl.sh — Federated Learning orchestrator for N Raspberry Pi 4s
 #
-#   ./fl.sh setup    One-time setup: deploy code + data, install deps
-#   ./fl.sh train    Run federated learning with live dashboard
-#   ./fl.sh stop     Stop all FL processes on laptop and Pis
-#   ./fl.sh logs     Stream live logs from all devices
-#   ./fl.sh status   Show training progress and system status
+#   ./fl.sh setup              One-time setup: deploy code + data, install deps
+#   ./fl.sh train              Run FL (blockchain variant from .env)
+#   ./fl.sh train baseline     Force baseline blockchain (BLOCKCHAIN_OPTIMIZED=0)
+#   ./fl.sh train optimized    Force optimized blockchain (BLOCKCHAIN_OPTIMIZED=1)
+#   ./fl.sh stop               Stop all FL processes on laptop and Pis
+#   ./fl.sh logs               Stream live logs from all devices
+#   ./fl.sh status             Show training progress and system status
 #
 # ── TO ADD MORE PIs: just add their hostname to PI_HOSTS below ──
 #
 # Configuration via environment variables:
 #   PI_USER=pi         SSH user on all Pis (default: pi)
+#   PI_PASSWORD=...    SSH password for initial key bootstrap (default: 123123)
+#   SSH_KEY_PATH=...   Local private key path (default: ~/.ssh/id_ed25519)
 #   NUM_ROUNDS=10      Training rounds (default: 10)
-#   LOCAL_EPOCHS=1     Local training epochs per round (default: 1)
+#   LOCAL_EPOCHS=5     Local training epochs per round (default: 5)
 #   LR=0.002           Learning rate (default: 0.002)
-#   BATCH_SIZE=256     Batch size (default: 256)
+#   BATCH_SIZE=64      Batch size (default: 64)
 #   SERVER_IP=...      Override auto-detected laptop IP
 
 set -euo pipefail
 
 # ── Pi hostnames — ADD NEW PIs HERE ───────────────────────────
 PI_HOSTS=(
-    "raspberrypi1.local"   # partition 0
-    "raspberrypi.local"    # partition 1
-    # "raspberrypi2.local" # partition 2  ← uncomment to add a third Pi
-    # "raspberrypi3.local" # partition 3  ← uncomment to add a fourth Pi
+    "raspberrypi1.local"   
+    "raspberrypi.local"    
+    "raspberrypi2.local" 
+    "raspberrypi3.local" 
+    "raspberrypi4.local"
+    "raspberrypi5.local"
+    "raspberrypi6.local"
+    "raspberrypi7.local"
+    # "raspberrypi8.local"
+    # "raspberrypi9.local"
 )
 
 # ── Training defaults ──────────────────────────────────────────
 PI_USER="${PI_USER:-pi}"
+PI_PASSWORD="${PI_PASSWORD:-123123}"
+SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 NUM_ROUNDS="${NUM_ROUNDS:-10}"
-LOCAL_EPOCHS="${LOCAL_EPOCHS:-1}"
+LOCAL_EPOCHS="${LOCAL_EPOCHS:-5}"
 LR="${LR:-0.002}"
-BATCH_SIZE="${BATCH_SIZE:-256}"
+BATCH_SIZE="${BATCH_SIZE:-64}"
 
 # Derived automatically — do not change
 NUM_PARTITIONS="${#PI_HOSTS[@]}"
@@ -67,6 +79,14 @@ pi_ssh() {
         "${PI_USER}@${host}" "$@"
 }
 
+    pi_ssh_bootstrap() {
+        local host="$1"; shift
+        ssh -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=10 \
+        -o ServerAliveInterval=30 \
+        "${PI_USER}@${host}" "$@"
+    }
+
 pi_scp() {
     scp -o StrictHostKeyChecking=no \
         -o ConnectTimeout=10 \
@@ -75,6 +95,68 @@ pi_scp() {
 }
 
 check_pi() { pi_ssh "$1" "echo ok" >/dev/null 2>&1; }
+
+ensure_local_ssh_key() {
+    local pub_key="${SSH_KEY_PATH}.pub"
+
+    [ -d "$(dirname "$SSH_KEY_PATH")" ] || mkdir -p "$(dirname "$SSH_KEY_PATH")"
+    chmod 700 "$(dirname "$SSH_KEY_PATH")" 2>/dev/null || true
+
+    if [ -f "$SSH_KEY_PATH" ] && [ -f "$pub_key" ]; then
+        return 0
+    fi
+
+    info "No SSH key found at $SSH_KEY_PATH. Generating one..."
+    ssh-keygen -t ed25519 -N "" -f "$SSH_KEY_PATH" >/dev/null
+    info "  ✓ Created keypair: $SSH_KEY_PATH"
+}
+
+bootstrap_pi_key() {
+    local host="$1"
+    local pub_key="${SSH_KEY_PATH}.pub"
+
+    check_pi "$host" && { info "  ✓ $host (key auth already works)"; return 0; }
+
+    info "  ↻ Bootstrapping SSH key on $host"
+
+    if command -v ssh-copy-id >/dev/null 2>&1; then
+        if [ -n "$PI_PASSWORD" ] && command -v sshpass >/dev/null 2>&1; then
+            sshpass -p "$PI_PASSWORD" ssh-copy-id \
+                -i "$pub_key" \
+                -o StrictHostKeyChecking=no \
+                -o ConnectTimeout=10 \
+                "${PI_USER}@${host}" >/dev/null 2>&1 \
+                || die "Failed to copy SSH key to $host using PI_PASSWORD"
+        else
+            ssh-copy-id \
+                -i "$pub_key" \
+                -o StrictHostKeyChecking=no \
+                -o ConnectTimeout=10 \
+                "${PI_USER}@${host}" \
+                || die "Failed to copy SSH key to $host"
+        fi
+    elif [ -n "$PI_PASSWORD" ] && command -v sshpass >/dev/null 2>&1; then
+        cat "$pub_key" | sshpass -p "$PI_PASSWORD" ssh \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            "${PI_USER}@${host}" \
+            "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && cat >> ~/.ssh/authorized_keys" \
+            || die "Failed to append SSH key on $host"
+    else
+        die "Cannot bootstrap SSH key for $host: install ssh-copy-id, or install sshpass and set PI_PASSWORD"
+    fi
+
+    check_pi "$host" \
+        && info "  ✓ $host (key bootstrap complete)" \
+        || die "Key bootstrap finished but passwordless SSH still fails for $host"
+}
+
+ensure_ssh_access_all_pis() {
+    ensure_local_ssh_key
+    for pi in "${PI_HOSTS[@]}"; do
+        bootstrap_pi_key "$pi"
+    done
+}
 
 server_ip() {
     local ip=""
@@ -97,6 +179,9 @@ activate_venv() {
 cmd_setup() {
     step "FL SETUP — ${NUM_PARTITIONS} Pi(s)"
 
+    step "Ensuring SSH key-based access"
+    ensure_ssh_access_all_pis
+
     info "Checking SSH connectivity..."
     for pi in "${PI_HOSTS[@]}"; do
         check_pi "$pi" \
@@ -110,11 +195,12 @@ cmd_setup() {
     _deploy() {
         local pi_host="$1"
         local logf="$LOG_DIR/setup_${pi_host}.log"
+        _plog() { echo "[$(ts)] [${pi_host}] $*"; }
         {
-            echo "[$(ts)] ── Setup: ${pi_host} ──"
+            _plog "── Setup start ──"
 
-            echo "[$(ts)] Syncing source code..."
-            pi_ssh "$pi_host" "rm -rf ~/FL-Blockchain-EVM ~/FL-Blockchain-EVM-tmp" 2>/dev/null || true
+            _plog "Syncing source code..."
+            pi_ssh "$pi_host" "rm -rf ~/FL-Blockchain-EVM-tmp" 2>/dev/null || true
             tar -czf - \
                 --exclude='venv' --exclude='.git' --exclude='__pycache__' \
                 --exclude='*.pyc' --exclude='outputs' --exclude='.env' \
@@ -126,29 +212,35 @@ cmd_setup() {
                  && dirname_tar=\$(ls -d ~/FL-Blockchain-EVM* 2>/dev/null | head -1) \
                  && [ -d ~/FL-Blockchain-EVM ] || mv \"\$dirname_tar\" ~/FL-Blockchain-EVM \
                  && chmod +x ~/FL-Blockchain-EVM/fl.sh \
-                 && echo '[$(ts)] Code synced'"
+                 && echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] Code synced\""
 
-            echo "[$(ts)] Syncing MHEALTH data..."
+            _plog "Syncing MHEALTH data..."
             local data_src="$PROJECT_DIR/data/MHEALTHDATASET"
             pi_ssh "$pi_host" "mkdir -p ~/FL-Blockchain-EVM/data/MHEALTHDATASET/.npy_cache"
             # Copy real log files if present
             if ls "$data_src"/mHealth_subject*.log 1>/dev/null 2>&1; then
+                local subject_count
+                subject_count=$(ls "$data_src"/mHealth_subject*.log 2>/dev/null | wc -l | tr -d ' ')
+                _plog "Copying ${subject_count} subject files..."
                 pi_scp -q "$data_src"/mHealth_subject*.log \
                     "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/data/MHEALTHDATASET/"
-                echo "[$(ts)] Copied $(ls "$data_src"/mHealth_subject*.log | wc -l | tr -d ' ') subject files."
+                _plog "Copied ${subject_count} subject files."
             fi
             # Copy npy cache if present
             if ls "$data_src/.npy_cache"/s*.npy 1>/dev/null 2>&1; then
+                local npy_count
+                npy_count=$(ls "$data_src/.npy_cache"/s*.npy 2>/dev/null | wc -l | tr -d ' ')
+                _plog "Copying ${npy_count} npy cache files..."
                 pi_scp -q "$data_src/.npy_cache"/s*.npy \
                     "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/data/MHEALTHDATASET/.npy_cache/"
-                echo "[$(ts)] Copied npy cache."
+                _plog "Copied ${npy_count} npy cache files."
             fi
 
             [ -f "$PROJECT_DIR/.env" ] && \
                 pi_scp -q "$PROJECT_DIR/.env" "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/.env" && \
-                echo "[$(ts)] .env copied."
+                _plog ".env copied."
 
-            echo "[$(ts)] Installing Python dependencies (may take 15-30 min first time)..."
+            _plog "Installing Python dependencies (may take 15-30 min first time)..."
             pi_ssh "$pi_host" bash << 'PISETUP'
 set -e
 cd ~/FL-Blockchain-EVM
@@ -166,9 +258,22 @@ source venv/bin/activate
 _l "Upgrading pip..."
 pip install --upgrade pip setuptools wheel --quiet
 
-_l "Installing fl dependencies..."
-pip install -r requirements-pi.txt \
-    2>&1 | grep -E '(Successfully installed|error|ERROR|already satisfied)' | head -20 || true
+_l "Checking existing FL dependencies..."
+if python3 - << 'VCHK' >/dev/null 2>&1
+import importlib
+for name in ("flwr", "torch", "numpy", "sklearn"):
+    importlib.import_module(name)
+VCHK
+then
+    _l "Dependencies already present, skipping pip install"
+else
+    _l "Installing fl dependencies (streaming pip output)..."
+    pip install -r requirements-pi.txt 2>&1 | while IFS= read -r line; do
+        _l "[pip] $line"
+    done
+    rc=${PIPESTATUS[0]}
+    [ "$rc" -eq 0 ] || { _l "pip install failed with code $rc"; exit "$rc"; }
+fi
 
 _l "Verifying..."
 python3 - << 'V'
@@ -189,7 +294,7 @@ which flower-supernode >/dev/null 2>&1 \
 
 _l "Setup COMPLETE on $(hostname)"
 PISETUP
-            echo "[$(ts)] ✓ ${pi_host} done."
+            _plog "✓ setup done"
         } 2>&1 | tee "$logf"
     }
 
@@ -217,7 +322,32 @@ PISETUP
 #  TRAIN — full FL run: SuperLink + dashboard + SuperNodes + flwr run
 # ─────────────────────────────────────────────────────────────
 cmd_train() {
-    step "FL TRAINING — $NUM_ROUNDS rounds, $NUM_PARTITIONS partitions"
+    # ── Blockchain variant ────────────────────────────────────
+    local _variant="${1:-}"
+    case "$_variant" in
+        baseline)
+            export BLOCKCHAIN_OPTIMIZED=0
+            export EXPERIMENT_VARIANT=baseline
+            ;;
+        optimized)
+            export BLOCKCHAIN_OPTIMIZED=1
+            export EXPERIMENT_VARIANT=optimized
+            ;;
+        "")
+            # Use whatever BLOCKCHAIN_OPTIMIZED / EXPERIMENT_VARIANT are in .env
+            BLOCKCHAIN_OPTIMIZED="${BLOCKCHAIN_OPTIMIZED:-0}"
+            EXPERIMENT_VARIANT="${EXPERIMENT_VARIANT:-experiment}"
+            export BLOCKCHAIN_OPTIMIZED EXPERIMENT_VARIANT
+            ;;
+        *)
+            die "Unknown variant '$_variant'. Use: baseline  optimized"
+            ;;
+    esac
+
+    local _bc_label
+    [ "$BLOCKCHAIN_OPTIMIZED" = "1" ] && _bc_label="OPTIMIZED" || _bc_label="BASELINE"
+
+    step "FL TRAINING — $NUM_ROUNDS rounds, $NUM_PARTITIONS partitions  [$_bc_label]"
 
     local SRV_IP="${SERVER_IP:-$(server_ip)}"
     [ -n "$SRV_IP" ] || die "Could not detect laptop IP.\nSet: SERVER_IP=192.168.x.x ./fl.sh train"
@@ -228,6 +358,7 @@ cmd_train() {
     done
     info "  Rounds          : $NUM_ROUNDS"
     info "  LR / Epochs     : $LR / $LOCAL_EPOCHS"
+    info "  Blockchain      : $_bc_label  (EXPERIMENT_VARIANT=$EXPERIMENT_VARIANT)"
     info "  Flower ports    : Fleet=$SL_FLEET_PORT  Control=$SL_CONTROL_PORT"
     info "  Dashboard       : http://localhost:$DASHBOARD_PORT/monitor"
 
@@ -411,7 +542,7 @@ PY
     info "  SuperLink log : $LOG_DIR/superlink.log"
     info ""
 
-    export NUM_ROUNDS LOCAL_EPOCHS LR BATCH_SIZE
+    export NUM_ROUNDS LOCAL_EPOCHS LR BATCH_SIZE NUM_PARTITIONS
     export FL_DATA_DIR="$PROJECT_DIR/data/MHEALTHDATASET"
 
     flwr run . remote-federation \
@@ -592,7 +723,7 @@ PY
 CMD="${1:-help}"; shift 2>/dev/null || true
 case "$CMD" in
     setup)  cmd_setup  ;;
-    train)  cmd_train  ;;
+    train)  cmd_train "$@"  ;;
     stop)   cmd_stop   ;;
     logs)   cmd_logs   ;;
     status) cmd_status ;;
@@ -603,12 +734,14 @@ case "$CMD" in
         echo -e "Usage: ${B}./fl.sh <command>${N}"
         echo -e ""
         printf "  ${G}%-8s${N}  %s\n" "setup"  "Deploy code + data to all Pis, install all deps"
-        printf "  ${G}%-8s${N}  %s\n" "train"  "Start: SuperLink + dashboard + SuperNodes + flwr run"
+        printf "  ${G}%-8s${N}  %s\n" "train"  "Start FL (blockchain variant from .env)"
+        printf "  ${G}%-10s${N}  %s\n" "train baseline"  "Force baseline blockchain  (BLOCKCHAIN_OPTIMIZED=0)"
+        printf "  ${G}%-10s${N}  %s\n" "train optimized" "Force optimized blockchain (BLOCKCHAIN_OPTIMIZED=1)"
         printf "  ${G}%-8s${N}  %s\n" "stop"   "Stop all FL processes on laptop and all Pis"
         printf "  ${G}%-8s${N}  %s\n" "logs"   "Stream live logs from all devices simultaneously"
         printf "  ${G}%-8s${N}  %s\n" "status" "Show training progress and system health"
         echo -e ""
-        echo -e "Env overrides:  PI_USER=pi  NUM_ROUNDS=10  LOCAL_EPOCHS=1  BATCH_SIZE=256  LR=0.002  SERVER_IP=..."
+        echo -e "Env overrides:  PI_USER=pi  PI_PASSWORD=123123  SSH_KEY_PATH=~/.ssh/id_ed25519  NUM_ROUNDS=10  LOCAL_EPOCHS=5  BATCH_SIZE=64  LR=0.002  SERVER_IP=..."
         echo -e ""
         echo -e "Pis configured (${NUM_PARTITIONS} total):"
         for i in "${!PI_HOSTS[@]}"; do

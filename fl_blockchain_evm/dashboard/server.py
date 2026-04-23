@@ -38,7 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-RESULTS_FILE = Path("outputs/results.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LATEST_RESULTS_FILE = PROJECT_ROOT / "outputs" / "latest" / "results.json"
+RESULTS_FILE = Path(os.getenv("FL_RESULTS_FILE", str(LATEST_RESULTS_FILE))).expanduser()
 
 # ─────────────────────────────────────────────────────────────
 # Blockchain connection (optional — gracefully degrades if unavailable)
@@ -54,7 +56,7 @@ def _init_blockchain():
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         if not w3.is_connected():
             return None, None
-        abi_path = Path("contracts/FLBlockchain_abi.json")
+        abi_path = PROJECT_ROOT / "contracts" / "FLBlockchain_abi.json"
         if not abi_path.exists():
             return None, None
         with open(abi_path, encoding="utf-8") as f:
