@@ -1,0 +1,247 @@
+21:05:58.%f  === FL-Blockchain Performance Log ===
+21:05:58.%f  Mode     : BASELINE
+21:05:58.%f  Started  : 2026-04-24T21:05:58.281858
+21:05:58.%f  File     : outputs/baseline_20260424_210558/perf_baseline_20260424_210558.log
+21:05:58.%f  ==================================================
+21:05:58.%f  BLOCKCHAIN_OPTIMIZED = False
+21:07:12.%f    ipfs_global model_cid=QmfTEx3ZpbzYZb4f...  upload_ms=71037 [blocking]
+21:07:13.%f    gas_limit  type=GLOBAL estimated=226305  estimate_ms=615.2
+21:07:13.%f    gas_price  fetched=6000000  fetch_ms=203.9
+21:07:13.%f    tx_sent    type=GLOBAL  hash=34b2b700f670...  send_ms=283.0
+21:07:13.%f    global_tx_fired  ms=1615.6
+21:07:14.%f    confirmed  idx=0  block=45128744  submit_to_confirm_ms=226
+21:07:14.%f    wait_for_pending  n=1  total_wait_ms=226
+21:07:14.%f    round_confirmation_total_ms=226
+21:07:14.%f    verify_chain  valid=True  ms=697 [per-round]
+21:07:14.%f  --- ROUND 0 end  total_overhead_ms=1842
+21:08:09.%f  --- ROUND 1 start  mode=BASE
+21:08:11.%f    ipfs_local  cid=QmYp8XYeUzeo2Cxb...  upload_ms=1029 [blocking]
+21:08:11.%f    gas_limit  type=LOCAL  estimated=276382  estimate_ms=622.9
+21:08:12.%f    gas_price  fetched=6000000  fetch_ms=816.7
+21:08:12.%f    tx_sent    type=LOCAL   hash=e25d64642e6f...  send_ms=305.4
+21:08:12.%f    local_tx_fired  ms=1959.6
+21:08:14.%f    ipfs_vote   cid=QmSDDWAvd5yffatF...  upload_ms=1127 [blocking]
+21:08:14.%f    gas_limit  type=VOTE   estimated=270211  estimate_ms=608.1
+21:08:14.%f    gas_price  fetched=6000000  fetch_ms=204.4
+21:08:15.%f    tx_sent    type=VOTE    hash=0fdb2fc994ce...  send_ms=315.0
+21:08:15.%f    vote_tx_fired  ms=1325.0
+21:12:10.%f    ipfs_global model_cid=None...  upload_ms=189196 [blocking]
+21:12:10.%f    gas_limit  type=GLOBAL estimated=248600  estimate_ms=612.5
+21:12:11.%f    gas_price  fetched=6000000  fetch_ms=205.4
+21:12:11.%f    tx_sent    type=GLOBAL  hash=62530d628737...  send_ms=301.7
+21:12:11.%f    global_tx_fired  ms=1330.0
+21:12:11.%f    confirmed  idx=0  block=45128774  submit_to_confirm_ms=238796
+21:12:11.%f    confirmed  idx=1  block=45128775  submit_to_confirm_ms=236556
+21:12:12.%f    confirmed  idx=2  block=45128893  submit_to_confirm_ms=626
+21:12:12.%f    wait_for_pending  n=3  total_wait_ms=625
+21:12:12.%f    round_confirmation_total_ms=626
+21:12:12.%f    verify_chain  valid=True  ms=619 [per-round]
+21:12:12.%f  --- ROUND 1 end  total_overhead_ms=1956
+21:14:42.%f  --- ROUND 2 start  mode=BASE
+21:14:44.%f    ipfs_local  cid=QmWKcqkvbRvGyraB...  upload_ms=2123 [blocking]
+21:14:45.%f    gas_limit  type=LOCAL  estimated=276322  estimate_ms=818.2
+21:14:45.%f    gas_price  fetched=6000000  fetch_ms=204.5
+21:14:46.%f    tx_sent    type=LOCAL   hash=13449133108a...  send_ms=320.9
+21:14:46.%f    local_tx_fired  ms=1553.5
+21:14:47.%f    ipfs_vote   cid=QmYC1SzCNd3LxzWT...  upload_ms=801 [blocking]
+21:14:47.%f    gas_limit  type=VOTE   estimated=269898  estimate_ms=613.8
+21:14:48.%f    gas_price  fetched=6000000  fetch_ms=223.8
+21:14:48.%f    tx_sent    type=VOTE    hash=675852524bb4...  send_ms=370.1
+21:14:48.%f    vote_tx_fired  ms=1433.7
+21:15:31.%f    ipfs_global model_cid=QmP3Z6FHB4J4keiJ...  upload_ms=7555 [blocking]
+21:15:32.%f    gas_limit  type=GLOBAL estimated=251377  estimate_ms=599.7
+21:15:32.%f    gas_price  fetched=6000000  fetch_ms=202.3
+21:15:32.%f    tx_sent    type=GLOBAL  hash=7c17c50bd95d...  send_ms=331.5
+21:15:32.%f    global_tx_fired  ms=1316.2
+21:15:33.%f    confirmed  idx=0  block=45128970  submit_to_confirm_ms=46677
+21:15:33.%f    confirmed  idx=1  block=45128972  submit_to_confirm_ms=44647
+21:15:33.%f    confirmed  idx=2  block=45128994  submit_to_confirm_ms=615
+21:15:33.%f    wait_for_pending  n=3  total_wait_ms=615
+21:15:33.%f    round_confirmation_total_ms=615
+21:15:34.%f    verify_chain  valid=True  ms=614 [per-round]
+21:15:34.%f  --- ROUND 2 end  total_overhead_ms=1931
+21:16:32.%f  --- ROUND 3 start  mode=BASE
+21:16:34.%f    ipfs_local  cid=QmQz4nKrby5rJgwV...  upload_ms=1497 [blocking]
+21:16:34.%f    gas_limit  type=LOCAL  estimated=276367  estimate_ms=613.3
+21:16:35.%f    gas_price  fetched=6000000  fetch_ms=204.3
+21:16:35.%f    tx_sent    type=LOCAL   hash=95c0cdf63a00...  send_ms=323.4
+21:16:35.%f    local_tx_fired  ms=1349.7
+21:16:36.%f    ipfs_vote   cid=QmTxrbVvv744kN8W...  upload_ms=839 [blocking]
+21:16:37.%f    gas_limit  type=VOTE   estimated=270241  estimate_ms=678.0
+21:16:37.%f    gas_price  fetched=6000000  fetch_ms=204.1
+21:16:37.%f    tx_sent    type=VOTE    hash=41bfaa7cc4f7...  send_ms=405.9
+21:16:37.%f    vote_tx_fired  ms=1497.3
+21:21:03.%f    ipfs_global model_cid=None...  upload_ms=190830 [blocking]
+21:21:04.%f    gas_limit  type=GLOBAL estimated=248555  estimate_ms=612.7
+21:21:04.%f    gas_price  fetched=6000000  fetch_ms=411.3
+21:21:05.%f    tx_sent    type=GLOBAL  hash=b5341992f88c...  send_ms=364.4
+21:21:05.%f    global_tx_fired  ms=1639.1
+21:21:05.%f    confirmed  idx=0  block=45129025  submit_to_confirm_ms=270116
+21:21:06.%f    confirmed  idx=1  block=45129026  submit_to_confirm_ms=268086
+21:21:06.%f    confirmed  idx=2  block=45129160  submit_to_confirm_ms=718
+21:21:06.%f    wait_for_pending  n=3  total_wait_ms=718
+21:21:06.%f    round_confirmation_total_ms=718
+21:21:07.%f    verify_chain  valid=True  ms=1330 [per-round]
+21:21:07.%f  --- ROUND 3 end  total_overhead_ms=2357
+21:22:25.%f  --- ROUND 4 start  mode=BASE
+21:22:27.%f    ipfs_local  cid=QmSibQ612sgQTCPg...  upload_ms=1613 [blocking]
+21:22:28.%f    gas_limit  type=LOCAL  estimated=276427  estimate_ms=819.8
+21:22:28.%f    gas_price  fetched=6000000  fetch_ms=818.3
+21:22:29.%f    tx_sent    type=LOCAL   hash=11546332033c...  send_ms=501.5
+21:22:29.%f    local_tx_fired  ms=2351.6
+21:22:30.%f    ipfs_vote   cid=QmXzuruRLyVcHbHr...  upload_ms=806 [blocking]
+21:22:31.%f    gas_limit  type=VOTE   estimated=270136  estimate_ms=631.2
+21:22:31.%f    gas_price  fetched=6000000  fetch_ms=204.6
+21:22:31.%f    tx_sent    type=VOTE    hash=d0627c968edd...  send_ms=324.8
+21:22:31.%f    vote_tx_fired  ms=1348.0
+21:23:32.%f    ipfs_global model_cid=QmbbiJihM2vYufvU...  upload_ms=8332 [blocking]
+21:23:32.%f    gas_limit  type=GLOBAL estimated=251361  estimate_ms=602.8
+21:23:32.%f    gas_price  fetched=6000000  fetch_ms=204.7
+21:23:33.%f    tx_sent    type=GLOBAL  hash=baa62e137896...  send_ms=291.0
+21:23:33.%f    global_tx_fired  ms=1383.9
+21:23:33.%f    confirmed  idx=0  block=45129202  submit_to_confirm_ms=64119
+21:23:33.%f    confirmed  idx=1  block=45129203  submit_to_confirm_ms=62151
+21:23:34.%f    confirmed  idx=2  block=45129234  submit_to_confirm_ms=707
+21:23:34.%f    wait_for_pending  n=3  total_wait_ms=707
+21:23:34.%f    round_confirmation_total_ms=707
+21:23:34.%f    verify_chain  valid=True  ms=595 [per-round]
+21:23:34.%f  --- ROUND 4 end  total_overhead_ms=2091
+21:24:47.%f  --- ROUND 5 start  mode=BASE
+21:24:51.%f    ipfs_local  cid=QmWvkWCsekHegfaG...  upload_ms=3777 [blocking]
+21:24:52.%f    gas_limit  type=LOCAL  estimated=276412  estimate_ms=716.6
+21:24:52.%f    gas_price  fetched=6000000  fetch_ms=418.3
+21:24:53.%f    tx_sent    type=LOCAL   hash=1ac42571b593...  send_ms=404.6
+21:24:53.%f    local_tx_fired  ms=1740.8
+21:24:54.%f    ipfs_vote   cid=QmQCqQJgYrn5RKEF...  upload_ms=922 [blocking]
+21:24:54.%f    gas_limit  type=VOTE   estimated=270241  estimate_ms=615.5
+21:24:55.%f    gas_price  fetched=6000000  fetch_ms=202.8
+21:24:55.%f    tx_sent    type=VOTE    hash=5c57472f6085...  send_ms=405.6
+21:24:55.%f    vote_tx_fired  ms=1432.8
+21:25:46.%f    ipfs_global model_cid=QmU3g9qckCtvw9Hs...  upload_ms=6862 [blocking]
+21:25:46.%f    gas_limit  type=GLOBAL estimated=251165  estimate_ms=627.7
+21:25:46.%f    gas_price  fetched=6000000  fetch_ms=179.8
+21:25:47.%f    tx_sent    type=GLOBAL  hash=bdc15259def8...  send_ms=302.8
+21:25:47.%f    global_tx_fired  ms=1344.6
+21:25:47.%f    confirmed  idx=0  block=45129274  submit_to_confirm_ms=54171
+21:25:47.%f    confirmed  idx=1  block=45129275  submit_to_confirm_ms=52021
+21:25:48.%f    confirmed  idx=2  block=45129301  submit_to_confirm_ms=819
+21:25:48.%f    wait_for_pending  n=3  total_wait_ms=819
+21:25:48.%f    round_confirmation_total_ms=819
+21:25:48.%f    verify_chain  valid=True  ms=614 [per-round]
+21:25:48.%f  --- ROUND 5 end  total_overhead_ms=2164
+21:26:52.%f  --- ROUND 6 start  mode=BASE
+21:26:54.%f    ipfs_local  cid=QmaXGu8qFwWQe6PJ...  upload_ms=1678 [blocking]
+21:26:55.%f    gas_limit  type=LOCAL  estimated=276322  estimate_ms=824.2
+21:26:55.%f    gas_price  fetched=6000000  fetch_ms=197.5
+21:26:56.%f    tx_sent    type=LOCAL   hash=52470f4c215c...  send_ms=507.2
+21:26:56.%f    local_tx_fired  ms=1739.1
+21:26:57.%f    ipfs_vote   cid=Qmf9tsThJbNC9o9x...  upload_ms=831 [blocking]
+21:26:57.%f    gas_limit  type=VOTE   estimated=270211  estimate_ms=807.6
+21:26:58.%f    gas_price  fetched=6000000  fetch_ms=212.4
+21:26:58.%f    tx_sent    type=VOTE    hash=1236b0445cbb...  send_ms=507.3
+21:26:58.%f    vote_tx_fired  ms=1728.8
+21:27:47.%f    ipfs_global model_cid=QmPDmp5NCtnZVQ9f...  upload_ms=6151 [blocking]
+21:27:47.%f    gas_limit  type=GLOBAL estimated=251392  estimate_ms=612.3
+21:27:47.%f    gas_price  fetched=6000000  fetch_ms=204.0
+21:27:48.%f    tx_sent    type=GLOBAL  hash=cb7b68d9ab67...  send_ms=302.5
+21:27:48.%f    global_tx_fired  ms=1329.0
+21:27:48.%f    confirmed  idx=0  block=45129335  submit_to_confirm_ms=52305
+21:27:48.%f    confirmed  idx=1  block=45129337  submit_to_confirm_ms=49956
+21:27:48.%f    confirmed  idx=2  block=45129361  submit_to_confirm_ms=615
+21:27:48.%f    wait_for_pending  n=3  total_wait_ms=615
+21:27:48.%f    round_confirmation_total_ms=615
+21:27:49.%f    verify_chain  valid=True  ms=614 [per-round]
+21:27:49.%f  --- ROUND 6 end  total_overhead_ms=1944
+21:28:50.%f  --- ROUND 7 start  mode=BASE
+21:28:52.%f    ipfs_local  cid=QmbQEtoWEk2KQUiY...  upload_ms=1527 [blocking]
+21:28:53.%f    gas_limit  type=LOCAL  estimated=276427  estimate_ms=819.3
+21:28:53.%f    gas_price  fetched=6000000  fetch_ms=920.9
+21:28:54.%f    tx_sent    type=LOCAL   hash=1125c1ee09ba...  send_ms=486.0
+21:28:54.%f    local_tx_fired  ms=2442.5
+21:28:55.%f    ipfs_vote   cid=QmTA1V29Ris5azqW...  upload_ms=937 [blocking]
+21:28:56.%f    gas_limit  type=VOTE   estimated=270302  estimate_ms=1220.1
+21:28:57.%f    gas_price  fetched=6000000  fetch_ms=213.6
+21:28:58.%f    tx_sent    type=VOTE    hash=7ad297e5ae98...  send_ms=1531.0
+21:28:58.%f    vote_tx_fired  ms=3173.8
+21:29:51.%f    ipfs_global model_cid=QmPwq4quqheMqVwV...  upload_ms=7203 [blocking]
+21:29:51.%f    gas_limit  type=GLOBAL estimated=250520  estimate_ms=630.3
+21:29:51.%f    gas_price  fetched=6000000  fetch_ms=190.0
+21:29:52.%f    tx_sent    type=GLOBAL  hash=961170e895e3...  send_ms=302.4
+21:29:52.%f    global_tx_fired  ms=1331.3
+21:29:52.%f    confirmed  idx=0  block=45129395  submit_to_confirm_ms=57873
+21:29:52.%f    confirmed  idx=1  block=45129397  submit_to_confirm_ms=53969
+21:29:52.%f    confirmed  idx=2  block=45129423  submit_to_confirm_ms=605
+21:29:52.%f    wait_for_pending  n=3  total_wait_ms=605
+21:29:52.%f    round_confirmation_total_ms=605
+21:29:53.%f    verify_chain  valid=True  ms=626 [per-round]
+21:29:53.%f  --- ROUND 7 end  total_overhead_ms=1936
+21:31:07.%f  --- ROUND 8 start  mode=BASE
+21:31:09.%f    ipfs_local  cid=QmSYAPoDD2kaJ9Vo...  upload_ms=1782 [blocking]
+21:31:10.%f    gas_limit  type=LOCAL  estimated=276397  estimate_ms=614.0
+21:31:10.%f    gas_price  fetched=6000000  fetch_ms=204.3
+21:31:11.%f    tx_sent    type=LOCAL   hash=cc9f76beffe6...  send_ms=821.4
+21:31:11.%f    local_tx_fired  ms=1847.8
+21:31:12.%f    ipfs_vote   cid=QmNNyZVjd9VFDYfd...  upload_ms=805 [blocking]
+21:31:13.%f    gas_limit  type=VOTE   estimated=270407  estimate_ms=918.9
+21:31:14.%f    gas_price  fetched=6000000  fetch_ms=830.5
+21:31:15.%f    tx_sent    type=VOTE    hash=ca6e3ef45580...  send_ms=536.3
+21:31:15.%f    vote_tx_fired  ms=3081.4
+21:35:11.%f    ipfs_global model_cid=None...  upload_ms=188326 [blocking]
+21:35:12.%f    gas_limit  type=GLOBAL estimated=248570  estimate_ms=642.6
+21:35:12.%f    gas_price  fetched=6000000  fetch_ms=190.7
+21:35:12.%f    tx_sent    type=GLOBAL  hash=fd3845b4d02f...  send_ms=300.6
+21:35:12.%f    global_tx_fired  ms=1348.9
+21:35:13.%f    confirmed  idx=0  block=45129463  submit_to_confirm_ms=241601
+21:35:13.%f    confirmed  idx=1  block=45129465  submit_to_confirm_ms=237983
+21:35:13.%f    confirmed  idx=2  block=45129584  submit_to_confirm_ms=706
+21:35:13.%f    wait_for_pending  n=3  total_wait_ms=706
+21:35:13.%f    round_confirmation_total_ms=706
+21:35:14.%f    verify_chain  valid=True  ms=612 [per-round]
+21:35:14.%f  --- ROUND 8 end  total_overhead_ms=2055
+21:36:15.%f  --- ROUND 9 start  mode=BASE
+21:36:17.%f    ipfs_local  cid=QmadYF4sDHQ7ez9N...  upload_ms=1912 [blocking]
+21:36:18.%f    gas_limit  type=LOCAL  estimated=276397  estimate_ms=1023.8
+21:36:19.%f    gas_price  fetched=6000000  fetch_ms=205.1
+21:36:19.%f    tx_sent    type=LOCAL   hash=48e893c43694...  send_ms=323.0
+21:36:19.%f    local_tx_fired  ms=1762.1
+21:36:20.%f    ipfs_vote   cid=QmQHok2VEfRzW2of...  upload_ms=1207 [blocking]
+21:36:21.%f    gas_limit  type=VOTE   estimated=270392  estimate_ms=613.9
+21:36:21.%f    gas_price  fetched=6000000  fetch_ms=204.2
+21:36:22.%f    tx_sent    type=VOTE    hash=7eded2914a43...  send_ms=905.8
+21:36:22.%f    vote_tx_fired  ms=1934.0
+21:38:28.%f    ipfs_global model_cid=QmQpGmDuQ6eXkhCE...  upload_ms=74164 [blocking]
+21:38:29.%f    gas_limit  type=GLOBAL estimated=251165  estimate_ms=614.4
+21:38:29.%f    gas_price  fetched=6000000  fetch_ms=205.0
+21:38:30.%f    tx_sent    type=GLOBAL  hash=90775ad008fe...  send_ms=573.8
+21:38:30.%f    global_tx_fired  ms=1605.4
+21:38:30.%f    confirmed  idx=0  block=45129617  submit_to_confirm_ms=131053
+21:38:30.%f    confirmed  idx=1  block=45129619  submit_to_confirm_ms=128116
+21:38:31.%f    confirmed  idx=2  block=45129682  submit_to_confirm_ms=853
+21:38:31.%f    wait_for_pending  n=3  total_wait_ms=852
+21:38:31.%f    round_confirmation_total_ms=853
+21:38:33.%f    verify_chain  valid=True  ms=1843 [per-round]
+21:38:33.%f  --- ROUND 9 end  total_overhead_ms=2458
+21:39:47.%f  --- ROUND 10 start  mode=BASE
+21:39:50.%f    ipfs_local  cid=QmfXkUZWcPRrJYXy...  upload_ms=3478 [blocking]
+21:39:51.%f    gas_limit  type=LOCAL  estimated=276427  estimate_ms=1331.6
+21:39:52.%f    gas_price  fetched=6000000  fetch_ms=203.9
+21:39:53.%f    tx_sent    type=LOCAL   hash=00c17d45abd8...  send_ms=610.2
+21:39:53.%f    local_tx_fired  ms=2969.9
+21:39:54.%f    ipfs_vote   cid=QmW22Rw42Rj9ubkV...  upload_ms=1107 [blocking]
+21:39:56.%f    gas_limit  type=VOTE   estimated=270121  estimate_ms=1641.4
+21:39:56.%f    gas_price  fetched=6000000  fetch_ms=527.8
+21:39:57.%f    tx_sent    type=VOTE    hash=a9d52eb31c0c...  send_ms=609.4
+21:39:57.%f    vote_tx_fired  ms=2988.6
+21:43:45.%f    ipfs_global model_cid=None...  upload_ms=190185 [blocking]
+21:43:46.%f    gas_limit  type=GLOBAL estimated=248358  estimate_ms=619.4
+21:43:46.%f    gas_price  fetched=6000000  fetch_ms=205.7
+21:43:47.%f    tx_sent    type=GLOBAL  hash=1c06283a67ea...  send_ms=1355.0
+21:43:47.%f    global_tx_fired  ms=2360.4
+21:43:48.%f    confirmed  idx=0  block=45129724  submit_to_confirm_ms=234605
+21:43:48.%f    confirmed  idx=1  block=45129726  submit_to_confirm_ms=230918
+21:43:48.%f    confirmed  idx=2  block=45129841  submit_to_confirm_ms=819
+21:43:48.%f    wait_for_pending  n=3  total_wait_ms=819
+21:43:48.%f    round_confirmation_total_ms=819
+21:43:49.%f    verify_chain  valid=True  ms=922 [per-round]
+21:43:49.%f  --- ROUND 10 end  total_overhead_ms=3180
+21:43:51.%f    verify_chain  valid=True  ms=1227  [per-round-final]

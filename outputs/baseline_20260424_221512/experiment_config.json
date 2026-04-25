@@ -1,0 +1,15 @@
+{
+  "variant": "baseline",
+  "run_timestamp": "20260424_221512",
+  "output_dir": "outputs/baseline_20260424_221512",
+  "blockchain_optimized": false,
+  "ipfs_backend": "pinata",
+  "pinata_account": "1",
+  "hardware_note": "8x RPi4, WiFi 2.4GHz",
+  "num_rounds": 10,
+  "num_clients": 8,
+  "local_epochs": 5,
+  "batch_size": 64,
+  "lr": 0.002,
+  "started_at": "2026-04-24T22:15:12.411893"
+}

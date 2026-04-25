@@ -1,0 +1,1053 @@
+[SETUP] Run output dir : outputs/optimized_20260424_214450
+[SETUP] Variant        : optimized
+[SETUP] Pinata account : 1
+  [PERF] Logging to outputs/optimized_20260424_214450/perf_optimized_20260424_214450.log
+  [EVM] Connected to network (Chain ID: 8453)
+  [EVM] Using account: 0x1c7433A4A78e1C5748d01D9429F7b39e9eaDBdd4
+  [EVM] Balance: 0.0018 ETH
+  [EVM] Contract loaded: 0xBE3FeAC76293711C5D32426860303AfE24cdf527
+  [EVM] Current chain length: 1335 blocks
+  [IPFS] Pinata primary: account_1 | accounts configured: 2 (+ 1 fallback)
+  [IPFS] Backend: pinata | Compress: True
+  [EVM] IPFS storage enabled (pinata backend)
+
+[96m════════════════════════════════════════════════════════════
+  12 Activities (MHEALTH): STANDING, SITTING, LYING, WALKING, CLIMBING_STAIRS, WAIST_BENDS, ARM_ELEVATION, KNEES_BENDING, CYCLING, JOGGING, RUNNING, JUMP_FRONT_BACK
+Using CUDA (GPU)
+  Rounds: 10 | LR: 0.002 | Device: cuda:0
+  Eval partitioning: 10 partitions
+  Blockchain: 3 tx per round (LOCAL + VOTE + GLOBAL)
+  IPFS:       enabled
+  Dashboard:  open dashboard.html in your browser
+════════════════════════════════════════════════════════════[0m
+
+  [MHEALTH] Loading from /home/bibarys/Documents/FL-Blockchain-EVM/data/MHEALTHDATASET ...
+  [MHEALTH] Train: 2065 windows | Test: 514 windows | Channels: 23 | Window: 256 samples
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 0] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 2.4768
+   accuracy            : 0.0895
+   f1_macro            : 0.0238
+   f1_weighted         : 0.0256
+   precision_macro     : 0.0139
+   recall_macro        : 0.0833
+   specificity_macro   : 0.9167
+   auc_macro           : 0.6925
+   ── Per-Activity ──  
+     STANDING  P=0.000  R=0.000  F1=0.000  AUC=0.478  (n=46)
+     SITTING  P=0.000  R=0.000  F1=0.000  AUC=0.752  (n=46)
+     LYING  P=0.167  R=1.000  F1=0.286  AUC=0.652  (n=46)
+     WALKING  P=0.000  R=0.000  F1=0.000  AUC=0.734  (n=46)
+     CLIMBING_STAIRS  P=0.000  R=0.000  F1=0.000  AUC=0.551  (n=46)
+     WAIST_BENDS  P=0.000  R=0.000  F1=0.000  AUC=0.677  (n=41)
+     ARM_ELEVATION  P=0.000  R=0.000  F1=0.000  AUC=0.765  (n=44)
+     KNEES_BENDING  P=0.000  R=0.000  F1=0.000  AUC=0.410  (n=45)
+     CYCLING  P=0.000  R=0.000  F1=0.000  AUC=0.477  (n=46)
+     JOGGING  P=0.000  R=0.000  F1=0.000  AUC=0.979  (n=46)
+     RUNNING  P=0.000  R=0.000  F1=0.000  AUC=0.993  (n=46)
+     JUMP_FRONT_BACK  P=0.000  R=0.000  F1=0.000  AUC=0.841  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 0)...
+  [EVM] Transaction sent: 02e82a76276b01f1a6a28081960052aba1fc6e58937c52d350ec83a54b3ef239
+  [EVM] Waiting for all Round 0 transactions to confirm...
+  [EVM] Waiting for 1 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45129875
+  [IPFS] WARNING: background upload thread timed out for round 0
+
+[96m  [BLOCKCHAIN] Round 0 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1336[0m
+  [TIMING] Round wall time: 1777049126.3s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.9s)
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.1s)
+
+[96m  ROUND 1 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0280 |   312   |   17.9  |  12 |
+|   1    | 0.0277 |   312   |   18.0  |  12 |
+|   2    | 0.0272 |   312   |   18.0  |  12 |
+|   3    | 0.0218 |   312   |   19.1  |  12 |
+|   4    | 0.0359 |   276   |   17.8  |  12 |
+|   5    | 0.0279 |   276   |   19.4  |  12 |
+|   6    | 0.0248 |   276   |   19.1  |  12 |
+|   7    | 0.0231 |   288   |   19.1  |  12 |
+|   8    | 0.0181 |   312   |   19.2  |  12 |
+|   9    | 0.0233 |   312   |   17.9  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0258  std=0.0046  threshold=0.0303
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 1 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 1, 10 clients)...
+  [EVM] Transaction sent: dc75dd7ba482f7c937f7140d68050a3d790b0ed8c765f43c761d8dd5f66668b9
+  [EVM] Firing VOTE block (Round 1: 9 accepted / 1 rejected)...
+  [IPFS] ✓ round_1_local.gz → QmTrvUL9y2gzVNVk8vMD… (1,326 → 371 bytes) [account_1/2]
+  [IPFS] ✓ round_1_votes.gz → QmY87y4UdG7HFiqsEeXL… (1,037 → 315 bytes) [account_1/2]
+  [EVM] Transaction sent: f4db6747a78a44adc1f2a4a76c3d94248668da5debd44999ac00c52099e7172f
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0280 | ACCEPTED |
+|   1    | 0.0277 | ACCEPTED |
+|   2    | 0.0272 | ACCEPTED |
+|   3    | 0.0218 | ACCEPTED |
+|   4    | 0.0359 | REJECTED |
+|   5    | 0.0279 | ACCEPTED |
+|   6    | 0.0248 | ACCEPTED |
+|   7    | 0.0231 | ACCEPTED |
+|   8    | 0.0181 | ACCEPTED |
+|   9    | 0.0233 | ACCEPTED |
++--------+--------+----------+
+Pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+
+[92m  ROUND 1 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   1    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   2    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   3    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   4    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   5    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   6    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   7    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   8    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
+|   9    | 2.2557 | 0.2276 | 0.1280 | 0.9192 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 1] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 2.2557
+   accuracy            : 0.2276
+   f1_macro            : 0.1280
+   f1_weighted         : 0.1357
+   precision_macro     : 0.1696
+   recall_macro        : 0.2130
+   specificity_macro   : 0.9293
+   auc_macro           : 0.9192
+   ── Per-Activity ──  
+     STANDING  P=0.000  R=0.000  F1=0.000  AUC=0.999  (n=46)
+     SITTING  P=0.000  R=0.000  F1=0.000  AUC=0.933  (n=46)
+     LYING  P=0.264  R=1.000  F1=0.418  AUC=1.000  (n=46)
+     WALKING  P=0.000  R=0.000  F1=0.000  AUC=0.994  (n=46)
+     CLIMBING_STAIRS  P=0.117  R=0.261  F1=0.161  AUC=0.717  (n=46)
+     WAIST_BENDS  P=1.000  R=0.073  F1=0.136  AUC=0.998  (n=41)
+     ARM_ELEVATION  P=0.000  R=0.000  F1=0.000  AUC=0.575  (n=44)
+     KNEES_BENDING  P=0.233  R=0.222  F1=0.227  AUC=0.896  (n=45)
+     CYCLING  P=0.422  R=1.000  F1=0.594  AUC=1.000  (n=46)
+     JOGGING  P=0.000  R=0.000  F1=0.000  AUC=0.991  (n=46)
+     RUNNING  P=0.000  R=0.000  F1=0.000  AUC=0.982  (n=46)
+     JUMP_FRONT_BACK  P=0.000  R=0.000  F1=0.000  AUC=0.945  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 1)...
+  [EVM] Transaction sent: abcad2fc5aea44118b72703ef7d5bb21cccdcacf08b6f490a5211414dab026f1
+  [EVM] Waiting for all Round 1 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45129946
+  [EVM] ✓ Confirmed in block 45129947
+  [EVM] ✓ Confirmed in block 45129982
+  [IPFS] WARNING: background upload thread timed out for round 1
+
+[96m  [BLOCKCHAIN] Round 1 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1339[0m
+  [TIMING] Round wall time: 103.7s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.9s)
+  [IPFS] ✓ round_1_global_model.gz → QmeAAfXYzxJX6jN22D3x… (3,495,841 → 3,204,777 bytes) [account_1/2]
+  [IPFS] ✓ round_1_global_metrics.gz → QmRkVSBc9Mxht5MLiqDn… (136 → 127 bytes) [account_1/2]
+
+[96m  ROUND 2 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0232 |   312   |   18.2  |  12 |
+|   1    | 0.0321 |   312   |   17.9  |  12 |
+|   2    | 0.0145 |   312   |   17.9  |  12 |
+|   3    | 0.0327 |   312   |   19.4  |  12 |
+|   4    | 0.0197 |   276   |   18.0  |  12 |
+|   5    | 0.0282 |   276   |   19.1  |  12 |
+|   6    | 0.0268 |   276   |   19.2  |  12 |
+|   7    | 0.0379 |   288   |   19.1  |  12 |
+|   8    | 0.0284 |   312   |   19.2  |  12 |
+|   9    | 0.0212 |   312   |   18.1  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0265  std=0.0066  threshold=0.0331
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 2 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 2, 10 clients)...
+  [EVM] Transaction sent: 6a51ffde90f09e038d9f28b8d99bf14cceeda619fc068c454691086cc1533c12
+  [EVM] Firing VOTE block (Round 2: 9 accepted / 1 rejected)...
+  [IPFS] ✓ round_2_local.gz → Qmbe363hWrEaq2d4F3gt… (1,319 → 366 bytes) [account_1/2]
+  [EVM] Transaction sent: 92e196be3655f87e2e3e7cbe4e9a46889935080c92590b70e2d3cf24e463408d
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0232 | ACCEPTED |
+|   1    | 0.0321 | ACCEPTED |
+|   2    | 0.0145 | ACCEPTED |
+|   3    | 0.0327 | ACCEPTED |
+|   4    | 0.0197 | ACCEPTED |
+|   5    | 0.0282 | ACCEPTED |
+|   6    | 0.0268 | ACCEPTED |
+|   7    | 0.0379 | REJECTED |
+|   8    | 0.0284 | ACCEPTED |
+|   9    | 0.0212 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_2_votes.gz → QmQFsWrduSUihq7dsz1Y… (1,031 → 314 bytes) [account_1/2]
+
+[92m  ROUND 2 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   1    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   2    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   3    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   4    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   5    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   6    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   7    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   8    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
+|   9    | 1.5428 | 0.5973 | 0.5558 | 0.9689 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 2] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 1.5427
+   accuracy            : 0.5973
+   f1_macro            : 0.5558
+   f1_weighted         : 0.5674
+   precision_macro     : 0.6136
+   recall_macro        : 0.5951
+   specificity_macro   : 0.9635
+   auc_macro           : 0.9689
+   ── Per-Activity ──  
+     STANDING  P=0.767  R=0.500  F1=0.605  AUC=0.932  (n=46)
+     SITTING  P=0.371  R=1.000  F1=0.541  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=0.522  F1=0.686  AUC=0.991  (n=46)
+     CLIMBING_STAIRS  P=0.120  R=0.065  F1=0.085  AUC=0.921  (n=46)
+     WAIST_BENDS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=0.250  F1=0.400  AUC=0.946  (n=44)
+     KNEES_BENDING  P=0.672  R=1.000  F1=0.804  AUC=0.981  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=0.233  R=0.304  F1=0.264  AUC=0.902  (n=46)
+     RUNNING  P=0.000  R=0.000  F1=0.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=0.200  R=0.500  F1=0.286  AUC=0.954  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 2)...
+  [EVM] Transaction sent: e98f2fd23b648d2ae6e0830c9e81671b25321cab7672daf7d58637bcb8055ae3
+  [EVM] Waiting for all Round 2 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130035
+  [EVM] ✓ Confirmed in block 45130035
+  [EVM] ✓ Confirmed in block 45130069
+  [IPFS] ✓ round_2_global_model.gz → QmUWy1pw45MbhJhwkwDE… (3,495,841 → 3,205,633 bytes) [account_1/2]
+  [IPFS] ✓ round_2_global_metrics.gz → QmQvE67B6GAC4ZTecVXK… (134 → 124 bytes) [account_1/2]
+
+[96m  [BLOCKCHAIN] Round 2 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1342[0m
+  [TIMING] Round wall time: 78.6s | Model payload: 3359 KB
+
+[96m  ROUND 3 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0363 |   312   |   17.9  |  12 |
+|   1    | 0.0227 |   312   |   18.0  |  12 |
+|   2    | 0.0208 |   312   |   17.9  |  12 |
+|   3    | 0.0281 |   312   |   19.1  |  12 |
+|   4    | 0.0283 |   276   |   18.1  |  12 |
+|   5    | 0.0236 |   276   |   18.9  |  12 |
+|   6    | 0.0287 |   276   |   19.2  |  12 |
+|   7    | 0.0207 |   288   |   19.1  |  12 |
+|   8    | 0.0192 |   312   |   19.1  |  12 |
+|   9    | 0.0268 |   312   |   17.8  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0255  std=0.0049  threshold=0.0304
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 3 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 3, 10 clients)...
+  [EVM] Transaction sent: d22be69822c374e9790c92e136997a22d64c5e8e3a27a075e0da485d05b7aae6
+  [EVM] Firing VOTE block (Round 3: 9 accepted / 1 rejected)...
+  [EVM] Transaction sent: 14297f310328eb2e5ea1571aea6c85573e068d5658620698b8d3c2ff2959fb30
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0363 | REJECTED |
+|   1    | 0.0227 | ACCEPTED |
+|   2    | 0.0208 | ACCEPTED |
+|   3    | 0.0281 | ACCEPTED |
+|   4    | 0.0283 | ACCEPTED |
+|   5    | 0.0236 | ACCEPTED |
+|   6    | 0.0287 | ACCEPTED |
+|   7    | 0.0207 | ACCEPTED |
+|   8    | 0.0192 | ACCEPTED |
+|   9    | 0.0268 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_3_local.gz → QmS43TffroM8VVQWewd4… (1,319 → 368 bytes) [account_1/2]
+  [IPFS] ✓ round_3_votes.gz → QmeuoQthuBQWKJnJKKHw… (1,030 → 311 bytes) [account_1/2]
+
+[92m  ROUND 3 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   1    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   2    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   3    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   4    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   5    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   6    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   7    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   8    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
+|   9    | 1.0797 | 0.7879 | 0.7614 | 0.9807 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 3] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 1.0797
+   accuracy            : 0.7879
+   f1_macro            : 0.7614
+   f1_weighted         : 0.7500
+   precision_macro     : 0.7860
+   recall_macro        : 0.7983
+   specificity_macro   : 0.9806
+   auc_macro           : 0.9807
+   ── Per-Activity ──  
+     STANDING  P=0.852  R=1.000  F1=0.920  AUC=1.000  (n=46)
+     SITTING  P=0.958  R=1.000  F1=0.979  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=0.962  R=0.543  F1=0.694  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=0.434  R=0.717  F1=0.541  AUC=0.937  (n=46)
+     WAIST_BENDS  P=0.621  R=1.000  F1=0.766  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=0.318  F1=0.483  AUC=1.000  (n=44)
+     KNEES_BENDING  P=0.000  R=0.000  F1=0.000  AUC=0.832  (n=45)
+     CYCLING  P=0.605  R=1.000  F1=0.754  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 3)...
+  [EVM] Transaction sent: aa1d87f850a6fc26cb1acf499a80de2bebefea7229fde7c3cb3787af558724a4
+  [EVM] Waiting for all Round 3 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130115
+  [EVM] ✓ Confirmed in block 45130115
+  [EVM] ✓ Confirmed in block 45130143
+  [IPFS] WARNING: background upload thread timed out for round 3
+
+[96m  [BLOCKCHAIN] Round 3 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1345[0m
+  [TIMING] Round wall time: 90.1s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.3s)
+
+[96m  ROUND 4 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0263 |   312   |   17.9  |  12 |
+|   1    | 0.0218 |   312   |   18.1  |  12 |
+|   2    | 0.0206 |   312   |   17.8  |  12 |
+|   3    | 0.0302 |   312   |   19.4  |  12 |
+|   4    | 0.0247 |   276   |   17.8  |  12 |
+|   5    | 0.0126 |   276   |   19.0  |  12 |
+|   6    | 0.0118 |   276   |   19.0  |  12 |
+|   7    | 0.0149 |   288   |   19.2  |  12 |
+|   8    | 0.0281 |   312   |   19.0  |  12 |
+|   9    | 0.0130 |   312   |   17.9  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0204  std=0.0066  threshold=0.0269
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 4 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 4, 10 clients)...
+  [EVM] Transaction sent: 5d84680ce3421bb7f2c57c5a1d25dff67a61b3ec31fff50341142a0fce08c1da
+  [EVM] Firing VOTE block (Round 4: 8 accepted / 2 rejected)...
+  [EVM] Transaction sent: 533ef4238b348a8c7c444ce92a4339022b040b9e1b37640c02abaa2d9fc56bfc
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0263 | ACCEPTED |
+|   1    | 0.0218 | ACCEPTED |
+|   2    | 0.0206 | ACCEPTED |
+|   3    | 0.0302 | REJECTED |
+|   4    | 0.0247 | ACCEPTED |
+|   5    | 0.0126 | ACCEPTED |
+|   6    | 0.0118 | ACCEPTED |
+|   7    | 0.0149 | ACCEPTED |
+|   8    | 0.0281 | REJECTED |
+|   9    | 0.0130 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_4_votes.gz → QmXxiycWZdHvj2PRoUAM… (1,043 → 319 bytes) [account_1/2]
+  [IPFS] ✓ round_4_local.gz → QmNLofyG6fNdPsUBxHjp… (1,323 → 371 bytes) [account_1/2]
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.5s)
+
+[92m  ROUND 4 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   1    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   2    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   3    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   4    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   5    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   6    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   7    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   8    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
+|   9    | 0.7045 | 0.8521 | 0.8343 | 0.9985 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 4] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.7045
+   accuracy            : 0.8521
+   f1_macro            : 0.8343
+   f1_weighted         : 0.8230
+   precision_macro     : 0.8935
+   recall_macro        : 0.8623
+   specificity_macro   : 0.9865
+   auc_macro           : 0.9985
+   ── Per-Activity ──  
+     STANDING  P=0.979  R=1.000  F1=0.989  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=0.087  F1=0.160  AUC=0.999  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=0.920  R=0.500  F1=0.648  AUC=0.995  (n=46)
+     CLIMBING_STAIRS  P=0.610  R=0.783  F1=0.686  AUC=0.991  (n=46)
+     WAIST_BENDS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=0.657  R=1.000  F1=0.793  AUC=0.999  (n=44)
+     KNEES_BENDING  P=0.849  R=1.000  F1=0.918  AUC=0.998  (n=45)
+     CYCLING  P=0.708  R=1.000  F1=0.829  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=0.978  F1=0.989  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 4)...
+  [EVM] Transaction sent: a254714fe72fdd96aa4fdd311c6f8560a1229923163c6374887d80af93e5ee6b
+  [EVM] Waiting for all Round 4 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130194
+  [EVM] ✓ Confirmed in block 45130194
+  [EVM] ✓ Confirmed in block 45130214
+  [IPFS] WARNING: background upload thread timed out for round 4
+
+[96m  [BLOCKCHAIN] Round 4 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1348[0m
+  [TIMING] Round wall time: 73.5s | Model payload: 3359 KB
+Pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.9s)
+
+[96m  ROUND 5 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0257 |   312   |   17.9  |  12 |
+|   1    | 0.0228 |   312   |   18.0  |  12 |
+|   2    | 0.0102 |   312   |   18.0  |  12 |
+|   3    | 0.0260 |   312   |   19.4  |  12 |
+|   4    | 0.0170 |   276   |   17.9  |  12 |
+|   5    | 0.0287 |   276   |   19.2  |  12 |
+|   6    | 0.0185 |   276   |   19.0  |  12 |
+|   7    | 0.0265 |   288   |   19.2  |  12 |
+|   8    | 0.0230 |   312   |   19.0  |  12 |
+|   9    | 0.0129 |   312   |   18.2  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0211  std=0.0059  threshold=0.0270
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 5 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 5, 10 clients)...
+  [EVM] Transaction sent: 999079df2b2525f833be3eba03cb8dfb7d5b688e7944e4a320783df834d8748b
+  [EVM] Firing VOTE block (Round 5: 9 accepted / 1 rejected)...
+  [EVM] Transaction sent: 6da0edc358c2a89bdc1c5265be8b802c698bae9e3768d342c454de600aea63f7
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0257 | ACCEPTED |
+|   1    | 0.0228 | ACCEPTED |
+|   2    | 0.0102 | ACCEPTED |
+|   3    | 0.0260 | ACCEPTED |
+|   4    | 0.0170 | ACCEPTED |
+|   5    | 0.0287 | REJECTED |
+|   6    | 0.0185 | ACCEPTED |
+|   7    | 0.0265 | ACCEPTED |
+|   8    | 0.0230 | ACCEPTED |
+|   9    | 0.0129 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_5_votes.gz → QmNb2bGT6ydXraypzbzr… (1,032 → 314 bytes) [account_1/2]
+  [IPFS] ✓ round_5_local.gz → QmNzcPYUXJdhkJTPPNih… (1,319 → 363 bytes) [account_1/2]
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.1s)
+
+[92m  ROUND 5 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   1    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   2    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   3    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   4    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   5    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   6    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   7    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   8    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
+|   9    | 0.4228 | 0.9903 | 0.9908 | 0.9997 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 5] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.4228
+   accuracy            : 0.9903
+   f1_macro            : 0.9908
+   f1_weighted         : 0.9902
+   precision_macro     : 0.9915
+   recall_macro        : 0.9909
+   specificity_macro   : 0.9991
+   auc_macro           : 0.9997
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=0.920  R=1.000  F1=0.958  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=1.000  R=0.891  F1=0.943  AUC=0.998  (n=46)
+     WAIST_BENDS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=44)
+     KNEES_BENDING  P=0.978  R=1.000  F1=0.989  AUC=0.998  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 5)...
+  [EVM] Transaction sent: 430c6a3dcfd9e36a9709a91b72002c06c1d22547b93d23087551614674a7003d
+  [EVM] Waiting for all Round 5 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130260
+  [EVM] ✓ Confirmed in block 45130260
+  [EVM] ✓ Confirmed in block 45130303
+  [IPFS] ✓ round_4_global_model.gz → Qmceyk371idVLNSYQ5Cs… (3,495,841 → 3,207,443 bytes) [account_1/2]
+  [IPFS] ✓ round_4_global_metrics.gz → QmV5q1vtjLCPVbYVE9cq… (134 → 125 bytes) [account_1/2]
+  [IPFS] WARNING: background upload thread timed out for round 5
+
+[96m  [BLOCKCHAIN] Round 5 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1351[0m
+  [TIMING] Round wall time: 117.4s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.7s)
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.1s)
+
+[96m  ROUND 6 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0174 |   312   |   18.0  |  12 |
+|   1    | 0.0265 |   312   |   18.0  |  12 |
+|   2    | 0.0224 |   312   |   17.9  |  12 |
+|   3    | 0.0171 |   312   |   19.3  |  12 |
+|   4    | 0.0285 |   276   |   17.9  |  12 |
+|   5    | 0.0204 |   276   |   19.4  |  12 |
+|   6    | 0.0124 |   276   |   19.1  |  12 |
+|   7    | 0.0252 |   288   |   19.2  |  12 |
+|   8    | 0.0206 |   312   |   19.1  |  12 |
+|   9    | 0.0267 |   312   |   17.8  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0217  std=0.0048  threshold=0.0266
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 6 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 6, 10 clients)...
+  [EVM] Transaction sent: 2df030b7593df947a3ca13127dfbca9ed6e68f6a7aae78c9e0cee37c1c15f880
+  [EVM] Firing VOTE block (Round 6: 8 accepted / 2 rejected)...
+  [EVM] Transaction sent: 50184fcf72e607ed79fc151f1d98c8425a086d0a2063f5d48b9c5397233ff138
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0174 | ACCEPTED |
+|   1    | 0.0265 | ACCEPTED |
+|   2    | 0.0224 | ACCEPTED |
+|   3    | 0.0171 | ACCEPTED |
+|   4    | 0.0285 | REJECTED |
+|   5    | 0.0204 | ACCEPTED |
+|   6    | 0.0124 | ACCEPTED |
+|   7    | 0.0252 | ACCEPTED |
+|   8    | 0.0206 | ACCEPTED |
+|   9    | 0.0267 | REJECTED |
++--------+--------+----------+
+  [IPFS] ✓ round_6_votes.gz → QmeqeXU6bsTZmU14uSnZ… (1,044 → 324 bytes) [account_1/2]
+  [IPFS] ✓ round_6_local.gz → QmYsjUwSCKxuqn2DewH9… (1,323 → 369 bytes) [account_1/2]
+Pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+
+[92m  ROUND 6 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   1    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   2    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   3    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   4    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   5    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   6    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   7    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   8    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
+|   9    | 0.4308 | 0.9066 | 0.9035 | 0.9999 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 6] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.4308
+   accuracy            : 0.9066
+   f1_macro            : 0.9035
+   f1_weighted         : 0.8986
+   precision_macro     : 0.9406
+   recall_macro        : 0.9123
+   specificity_macro   : 0.9915
+   auc_macro           : 0.9999
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=0.979  R=1.000  F1=0.989  AUC=1.000  (n=46)
+     WAIST_BENDS  P=0.695  R=1.000  F1=0.820  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=44)
+     KNEES_BENDING  P=1.000  R=0.578  F1=0.732  AUC=0.999  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=0.613  R=1.000  F1=0.760  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=0.370  F1=0.540  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 6)...
+  [EVM] Transaction sent: 6fd22e7d9c5e9f5c94a753be2eda72d2be022884799e5587fb2acdedcc3e5720
+  [EVM] Waiting for all Round 6 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130369
+  [EVM] ✓ Confirmed in block 45130370
+  [EVM] ✓ Confirmed in block 45130408
+  [IPFS] WARNING: background upload thread timed out for round 6
+
+[96m  [BLOCKCHAIN] Round 6 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1354[0m
+  [TIMING] Round wall time: 110.9s | Model payload: 3359 KB
+  [IPFS] ✓ round_6_global_model.gz → QmdjqLXa28AXuYhVy6pL… (3,495,841 → 3,209,518 bytes) [account_1/2]
+  [IPFS] ✓ round_6_global_metrics.gz → Qmb5Eq4a6eccZeV7FqPJ… (135 → 125 bytes) [account_1/2]
+
+[96m  ROUND 7 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0317 |   312   |   18.0  |  12 |
+|   1    | 0.0117 |   312   |   17.8  |  12 |
+|   2    | 0.0205 |   312   |   18.1  |  12 |
+|   3    | 0.0232 |   312   |   19.3  |  12 |
+|   4    | 0.0256 |   276   |   17.8  |  12 |
+|   5    | 0.0203 |   276   |   19.0  |  12 |
+|   6    | 0.0186 |   276   |   19.1  |  12 |
+|   7    | 0.0168 |   288   |   19.2  |  12 |
+|   8    | 0.0213 |   312   |   19.1  |  12 |
+|   9    | 0.0204 |   312   |   18.2  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0210  std=0.0050  threshold=0.0260
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 7 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 7, 10 clients)...
+  [EVM] Transaction sent: 173928b0f20838d07b2d7e3cd207831e4f46b4abe1ea82eab6f147adbea45cd5
+  [EVM] Firing VOTE block (Round 7: 9 accepted / 1 rejected)...
+  [EVM] Transaction sent: d4761b3de8434f04c2792a6f11f50460ddfba72dc1c799aeb4df3c361b5e1dba
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0317 | REJECTED |
+|   1    | 0.0117 | ACCEPTED |
+|   2    | 0.0205 | ACCEPTED |
+|   3    | 0.0232 | ACCEPTED |
+|   4    | 0.0256 | ACCEPTED |
+|   5    | 0.0203 | ACCEPTED |
+|   6    | 0.0186 | ACCEPTED |
+|   7    | 0.0168 | ACCEPTED |
+|   8    | 0.0213 | ACCEPTED |
+|   9    | 0.0204 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_7_local.gz → QmUEzWintfvrR17U3muH… (1,323 → 366 bytes) [account_1/2]  [IPFS] ✓ round_7_votes.gz → QmawZ9saKfupUg7JNcre… (1,035 → 313 bytes) [account_1/2]
+
+
+[92m  ROUND 7 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   1    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   2    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   3    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   4    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   5    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   6    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   7    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   8    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
+|   9    | 0.3477 | 0.9475 | 0.9472 | 0.9997 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 7] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.3477
+   accuracy            : 0.9475
+   f1_macro            : 0.9472
+   f1_weighted         : 0.9446
+   precision_macro     : 0.9640
+   recall_macro        : 0.9509
+   specificity_macro   : 0.9952
+   auc_macro           : 0.9997
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=0.500  F1=0.667  AUC=0.996  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WAIST_BENDS  P=0.911  R=1.000  F1=0.953  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=0.657  R=1.000  F1=0.793  AUC=1.000  (n=44)
+     KNEES_BENDING  P=1.000  R=0.911  F1=0.953  AUC=1.000  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 7)...
+  [EVM] Transaction sent: 7c44fbed2f354af3064566fbaba8be8f653551ef6162789321083914ec49f36f
+  [EVM] Waiting for all Round 7 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130472
+  [EVM] ✓ Confirmed in block 45130473
+  [EVM] ✓ Confirmed in block 45130557
+  [IPFS] ✓ round_7_global_model.gz → QmQxJXk1ix8oKZ8zAxqD… (3,495,841 → 3,209,737 bytes) [account_1/2]
+  [IPFS] ✓ round_7_global_metrics.gz → QmR55fKbzASqqUpSMuEj… (136 → 126 bytes) [account_1/2]
+
+[96m  [BLOCKCHAIN] Round 7 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1357[0m
+  [TIMING] Round wall time: 177.5s | Model payload: 3359 KB
+
+[96m  ROUND 8 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0163 |   312   |   17.9  |  12 |
+|   1    | 0.0126 |   312   |   17.9  |  12 |
+|   2    | 0.0327 |   312   |   17.9  |  12 |
+|   3    | 0.0187 |   312   |   19.1  |  12 |
+|   4    | 0.0179 |   276   |   17.8  |  12 |
+|   5    | 0.0108 |   276   |   19.3  |  12 |
+|   6    | 0.0282 |   276   |   19.2  |  12 |
+|   7    | 0.0295 |   288   |   19.1  |  12 |
+|   8    | 0.0191 |   312   |   19.1  |  12 |
+|   9    | 0.0271 |   312   |   18.0  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0213  std=0.0071  threshold=0.0284
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 8 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 8, 10 clients)...
+  [EVM] Transaction sent: 1536893e794a0ac0b7672e47fb631a921034f6cf622baeb479c492b11feb05f3
+  [EVM] Firing VOTE block (Round 8: 8 accepted / 2 rejected)...
+  [EVM] Transaction sent: f1aa183dbe4f067cecf19b59d99f34c86a226225f44197119f3d7dd83b227f10
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0163 | ACCEPTED |
+|   1    | 0.0126 | ACCEPTED |
+|   2    | 0.0327 | REJECTED |
+|   3    | 0.0187 | ACCEPTED |
+|   4    | 0.0179 | ACCEPTED |
+|   5    | 0.0108 | ACCEPTED |
+|   6    | 0.0282 | ACCEPTED |
+|   7    | 0.0295 | REJECTED |
+|   8    | 0.0191 | ACCEPTED |
+|   9    | 0.0271 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_8_votes.gz → QmYDjRSeYgjHNfaXjXtT… (1,045 → 319 bytes) [account_1/2]
+  [IPFS] ✓ round_8_local.gz → Qme2vfa9J4dohpRsoEgr… (1,323 → 359 bytes) [account_1/2]
+
+[92m  ROUND 8 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   1    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   2    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   3    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   4    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   5    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   6    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   7    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   8    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
+|   9    | 0.2510 | 0.9864 | 0.9864 | 1.0000 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 8] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.2510
+   accuracy            : 0.9864
+   f1_macro            : 0.9864
+   f1_weighted         : 0.9863
+   precision_macro     : 0.9878
+   recall_macro        : 0.9870
+   specificity_macro   : 0.9988
+   auc_macro           : 1.0000
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WAIST_BENDS  P=0.854  R=1.000  F1=0.921  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=44)
+     KNEES_BENDING  P=1.000  R=0.844  F1=0.916  AUC=1.000  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 8)...
+  [EVM] Transaction sent: ade457f536bf5a1ac27f1a4beab5767ede26fd7d001253e7c7e672b36de55ff1
+  [EVM] Waiting for all Round 8 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130604
+  [EVM] ✓ Confirmed in block 45130605
+  [EVM] ✓ Confirmed in block 45130623
+  [IPFS] WARNING: background upload thread timed out for round 8
+
+[96m  [BLOCKCHAIN] Round 8 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1360[0m
+  [TIMING] Round wall time: 68.6s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.5s)
+
+[96m  ROUND 9 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0276 |   312   |   17.9  |  12 |
+|   1    | 0.0219 |   312   |   17.9  |  12 |
+|   2    | 0.0187 |   312   |   18.0  |  12 |
+|   3    | 0.0105 |   312   |   19.4  |  12 |
+|   4    | 0.0165 |   276   |   18.1  |  12 |
+|   5    | 0.0203 |   276   |   19.4  |  12 |
+|   6    | 0.0241 |   276   |   19.1  |  12 |
+|   7    | 0.0218 |   288   |   19.1  |  12 |
+|   8    | 0.0251 |   312   |   19.2  |  12 |
+|   9    | 0.0197 |   312   |   18.2  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0206  std=0.0046  threshold=0.0252
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 9 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 9, 10 clients)...
+  [EVM] Transaction sent: c363f229817e85167b8a0e5aefb35d66b8f1e52eb2dfc09476aa8a992b51f17f
+  [EVM] Firing VOTE block (Round 9: 9 accepted / 1 rejected)...
+  [EVM] Transaction sent: 0b69c848929a9ed1f757f99a7497e6733cbf9b8a3bfffc3e9d84b9a5623f5713
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0276 | REJECTED |
+|   1    | 0.0219 | ACCEPTED |
+|   2    | 0.0187 | ACCEPTED |
+|   3    | 0.0105 | ACCEPTED |
+|   4    | 0.0165 | ACCEPTED |
+|   5    | 0.0203 | ACCEPTED |
+|   6    | 0.0241 | ACCEPTED |
+|   7    | 0.0218 | ACCEPTED |
+|   8    | 0.0251 | ACCEPTED |
+|   9    | 0.0197 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_9_local.gz → QmZ3a6HqYWGFuKoiNw8c… (1,323 → 369 bytes) [account_1/2]
+  [IPFS] ✓ round_9_votes.gz → QmXFud51muDHwkkF6prt… (1,034 → 314 bytes) [account_1/2]
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.7s)
+
+[92m  ROUND 9 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   1    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   2    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   3    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   4    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   5    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   6    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   7    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   8    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
+|   9    | 0.1793 | 1.0000 | 1.0000 | 1.0000 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 9] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.1793
+   accuracy            : 1.0000
+   f1_macro            : 1.0000
+   f1_weighted         : 1.0000
+   precision_macro     : 1.0000
+   recall_macro        : 1.0000
+   specificity_macro   : 1.0000
+   auc_macro           : 1.0000
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WAIST_BENDS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=44)
+     KNEES_BENDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 9)...
+  [EVM] Transaction sent: 077a559da60b8fc47c64e3c06cc850bfd312caeb012e6314d8880da60d2da49f
+  [EVM] Waiting for all Round 9 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130668
+  [EVM] ✓ Confirmed in block 45130668
+  [EVM] ✓ Confirmed in block 45130687
+  [IPFS] WARNING: background upload thread timed out for round 9
+
+[96m  [BLOCKCHAIN] Round 9 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1363[0m
+  [TIMING] Round wall time: 70.7s | Model payload: 3359 KB
+Pin attempt 1/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 2.6s)
+Pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+
+[96m  ROUND 10 TRAINING: 10 devices[0m
++--------+--------+---------+---------+-----+
+| Device |  Loss  | Samples | Time(s) | Cls |
++--------+--------+---------+---------+-----+
+|   0    | 0.0174 |   312   |   17.9  |  12 |
+|   1    | 0.0244 |   312   |   17.9  |  12 |
+|   2    | 0.0180 |   312   |   17.8  |  12 |
+|   3    | 0.0252 |   312   |   19.2  |  12 |
+|   4    | 0.0168 |   276   |   17.9  |  12 |
+|   5    | 0.0124 |   276   |   19.0  |  12 |
+|   6    | 0.0254 |   276   |   19.1  |  12 |
+|   7    | 0.0251 |   288   |   19.4  |  12 |
+|   8    | 0.0280 |   312   |   19.1  |  12 |
+|   9    | 0.0178 |   312   |   18.0  |  12 |
++--------+--------+---------+---------+-----+
+  Loss  mean=0.0210  std=0.0049  threshold=0.0259
+
+[96m  [BLOCKCHAIN] Firing LOCAL + VOTE blocks for Round 10 (async)...[0m
+
+  [EVM] Firing LOCAL block (Round 10, 10 clients)...
+  [EVM] Transaction sent: 5eed362903ff843ea9e3cc630436960e21fec356154cf49201dbab9902c5ea82
+  [EVM] Firing VOTE block (Round 10: 9 accepted / 1 rejected)...
+  [EVM] Transaction sent: 72e3ea6e4effff78b47457590dde74caf1b957225ebd58046808cff645f3ae68
++--------+--------+----------+
+| Device |  Loss  | Verdict  |
++--------+--------+----------+
+|   0    | 0.0174 | ACCEPTED |
+|   1    | 0.0244 | ACCEPTED |
+|   2    | 0.0180 | ACCEPTED |
+|   3    | 0.0252 | ACCEPTED |
+|   4    | 0.0168 | ACCEPTED |
+|   5    | 0.0124 | ACCEPTED |
+|   6    | 0.0254 | ACCEPTED |
+|   7    | 0.0251 | ACCEPTED |
+|   8    | 0.0280 | REJECTED |
+|   9    | 0.0178 | ACCEPTED |
++--------+--------+----------+
+  [IPFS] ✓ round_10_local.gz → QmUMzyHmEuoedAxPudwk… (1,328 → 364 bytes) [account_1/2]
+  [IPFS] ✓ round_10_votes.gz → QmdSXosfGyGMR9ruGWCr… (1,038 → 317 bytes) [account_1/2]
+Pin attempt 2/3 failed: ('Connection aborted.', TimeoutError('The write operation timed out'))  (retry in 4.1s)
+
+[92m  ROUND 10 EVALUATION: 10 devices[0m
++--------+--------+--------+--------+--------+-----+
+| Device |  Loss  |  Acc   |   F1   |  AUC   |  N  |
++--------+--------+--------+--------+--------+-----+
+|   0    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   1    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   2    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   3    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   4    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   5    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   6    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   7    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   8    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
+|   9    | 0.2080 | 0.9767 | 0.9765 | 1.0000 | 514 |
++--------+--------+--------+--------+--------+-----+
+  [MHEALTH] Partition 0: subjects=[1], windows=265
+  [MHEALTH] Normalization: global-train
+
+[93m════════════════════════════════════════════════════════════[0m
+[93m  [ROUND 10] GLOBAL — 12 Activities (MHEALTH)[0m
+[93m════════════════════════════════════════════════════════════[0m
+   loss                : 0.2080
+   accuracy            : 0.9767
+   f1_macro            : 0.9765
+   f1_weighted         : 0.9763
+   precision_macro     : 0.9811
+   recall_macro        : 0.9778
+   specificity_macro   : 0.9979
+   auc_macro           : 1.0000
+   ── Per-Activity ──  
+     STANDING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     SITTING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     LYING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WALKING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     CLIMBING_STAIRS  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     WAIST_BENDS  P=0.774  R=1.000  F1=0.872  AUC=1.000  (n=41)
+     ARM_ELEVATION  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=44)
+     KNEES_BENDING  P=1.000  R=0.733  F1=0.846  AUC=1.000  (n=45)
+     CYCLING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JOGGING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     RUNNING  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=46)
+     JUMP_FRONT_BACK  P=1.000  R=1.000  F1=1.000  AUC=1.000  (n=16)
+
+  [EVM] Firing GLOBAL block (Round 10)...
+  [EVM] Transaction sent: 988cbd113876463965c36f8804926ce0e61bf6b1738f6e48441eaf2d216bd28c
+  [EVM] Waiting for all Round 10 transactions to confirm...
+  [EVM] Waiting for 3 pending transaction(s)...
+  [EVM] ✓ Confirmed in block 45130733
+  [EVM] ✓ Confirmed in block 45130733
+  [EVM] ✓ Confirmed in block 45130751
+  [IPFS] ✓ round_10_global_model.gz → QmNb1kkwBhGCRdBvFZSn… (3,495,841 → 3,211,855 bytes) [account_1/2]
+  [IPFS] ✓ round_10_global_metrics.gz → QmaQMZ5LtYYbCFjSCCgA… (121 → 116 bytes) [account_1/2]
+
+[96m  [BLOCKCHAIN] Round 10 complete — 3 blocks written (LOCAL + VOTE + GLOBAL) | Chain length: 1366[0m
+  [TIMING] Round wall time: 42.8s | Model payload: 3359 KB
+
+  ════════════════════════════════════════════════════════════
+  EVM BLOCKCHAIN SUMMARY
+  ════════════════════════════════════════════════════════════
+  Contract:        0xBE3FeAC76293711C5D32426860303AfE24cdf527
+  Total blocks:    1366
+  Chain integrity: ✓ VALID
+  IPFS backend:    pinata
+  IPFS pins:       32
+  IPFS uploaded:   19,256,532 bytes
+  ════════════════════════════════════════════════════════════
+
+
+[92m   Done. Model  -> final_model.pt
+    Metrics -> outputs/optimized_20260424_214450/results.json[0m

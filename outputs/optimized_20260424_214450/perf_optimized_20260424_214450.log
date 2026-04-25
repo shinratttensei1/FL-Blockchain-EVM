@@ -1,0 +1,284 @@
+21:44:50.%f  === FL-Blockchain Performance Log ===
+21:44:50.%f  Mode     : OPTIMIZED
+21:44:50.%f  Started  : 2026-04-24T21:44:50.753328
+21:44:50.%f  File     : outputs/optimized_20260424_214450/perf_optimized_20260424_214450.log
+21:44:50.%f  ==================================================
+21:44:50.%f  BLOCKCHAIN_OPTIMIZED = True
+21:44:53.%f    ipfs_global background_thread_started  t=0.2ms
+21:44:54.%f    gas_limit  type=GLOBAL estimated=223497  estimate_ms=935.5  (cached for future rounds)
+21:44:55.%f    gas_price  fetched=6000000  fetch_ms=190.8
+21:44:55.%f    tx_sent    type=GLOBAL  hash=02e82a76276b...  send_ms=289.5
+21:44:55.%f    global_tx_fired  ms=1923.1
+21:44:55.%f    confirmed  idx=0  block=45129875  submit_to_confirm_ms=321
+21:44:55.%f    wait_for_pending  n=1  total_wait_ms=321
+21:44:55.%f    round_confirmation_total_ms=321
+21:45:25.%f  IPFS background thread did not finish within 30s for round 0 — CIDs may be missing
+21:45:25.%f  --- ROUND 0 end  total_overhead_ms=2244
+21:47:16.%f  --- ROUND 1 start  mode=OPT
+21:47:17.%f    gas_price_cached  price=6000000  fetch_ms=188.5
+21:47:17.%f    ipfs_local  background_thread_started  t=0.2ms
+21:47:17.%f    gas_limit  type=LOCAL  estimated=275167  estimate_ms=508.2  (cached for future rounds)
+21:47:17.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:47:18.%f    tx_sent    type=LOCAL   hash=dc75dd7ba482...  send_ms=405.1
+21:47:18.%f    local_tx_fired  ms=1122.8
+21:47:18.%f    ipfs_vote   background_thread_started  t=0.2ms
+21:47:18.%f    gas_limit  type=VOTE   estimated=268860  estimate_ms=717.4  (cached for future rounds)
+21:47:18.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:47:19.%f    ipfs_local  cid=QmTrvUL9y2gzVNVk... [background]
+21:47:19.%f    ipfs_vote   cid=QmY87y4UdG7HFiqs... [background]
+21:47:19.%f    tx_sent    type=VOTE    hash=f4db6747a78a...  send_ms=713.9
+21:47:19.%f    vote_tx_fired  ms=1639.0
+21:48:04.%f    ipfs_global ERROR=IPFS pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+21:48:29.%f    ipfs_global background_thread_started  t=3.8ms
+21:48:29.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+21:48:29.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:48:29.%f    tx_sent    type=GLOBAL  hash=abcad2fc5aea...  send_ms=290.1
+21:48:29.%f    global_tx_fired  ms=447.1
+21:48:29.%f    confirmed  idx=0  block=45129946  submit_to_confirm_ms=71588
+21:48:29.%f    confirmed  idx=1  block=45129947  submit_to_confirm_ms=70145
+21:48:30.%f    confirmed  idx=2  block=45129982  submit_to_confirm_ms=457
+21:48:30.%f    wait_for_pending  n=3  total_wait_ms=457
+21:48:30.%f    round_confirmation_total_ms=457
+21:49:00.%f  IPFS background thread did not finish within 30s for round 1 — CIDs may be missing
+21:49:00.%f  --- ROUND 1 end  total_overhead_ms=904
+21:49:45.%f    ipfs_global model_cid=QmeAAfXYzxJX6jN2...  [background]
+21:50:14.%f  --- ROUND 2 start  mode=OPT
+21:50:15.%f    gas_price_cached  price=6000000  fetch_ms=179.7
+21:50:15.%f    ipfs_local  background_thread_started  t=0.2ms
+21:50:15.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+21:50:15.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:50:15.%f    tx_sent    type=LOCAL   hash=6a51ffde90f0...  send_ms=335.9
+21:50:15.%f    local_tx_fired  ms=510.3
+21:50:15.%f    ipfs_vote   background_thread_started  t=0.3ms
+21:50:15.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+21:50:15.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:50:15.%f    ipfs_local  cid=Qmbe363hWrEaq2d4... [background]
+21:50:16.%f    tx_sent    type=VOTE    hash=92e196be3655...  send_ms=304.8
+21:50:16.%f    vote_tx_fired  ms=510.8
+21:50:16.%f    ipfs_vote   cid=QmQFsWrduSUihq7d... [background]
+21:51:22.%f    ipfs_global background_thread_started  t=3.4ms
+21:51:22.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+21:51:22.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:51:22.%f    tx_sent    type=GLOBAL  hash=e98f2fd23b64...  send_ms=301.4
+21:51:22.%f    global_tx_fired  ms=442.8
+21:51:22.%f    confirmed  idx=0  block=45130035  submit_to_confirm_ms=67335
+21:51:23.%f    confirmed  idx=1  block=45130035  submit_to_confirm_ms=66972
+21:51:24.%f    confirmed  idx=2  block=45130069  submit_to_confirm_ms=1553
+21:51:24.%f    wait_for_pending  n=3  total_wait_ms=1553
+21:51:24.%f    round_confirmation_total_ms=1553
+21:51:32.%f    ipfs_global model_cid=QmUWy1pw45MbhJhw...  [background]
+21:51:32.%f  --- ROUND 2 end  total_overhead_ms=1996
+21:52:53.%f  --- ROUND 3 start  mode=OPT
+21:52:53.%f    gas_price_cached  price=6000000  fetch_ms=156.9
+21:52:53.%f    ipfs_local  background_thread_started  t=0.2ms
+21:52:53.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+21:52:53.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:52:54.%f    tx_sent    type=LOCAL   hash=d22be69822c3...  send_ms=815.2
+21:52:54.%f    local_tx_fired  ms=1022.8
+21:52:54.%f    ipfs_vote   background_thread_started  t=0.2ms
+21:52:54.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+21:52:54.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:52:55.%f    tx_sent    type=VOTE    hash=14297f310328...  send_ms=508.0
+21:52:55.%f    vote_tx_fired  ms=715.6
+21:52:56.%f    ipfs_local  cid=QmS43TffroM8VVQW... [background]
+21:52:56.%f    ipfs_vote   cid=QmeuoQthuBQWKJnJ... [background]
+21:53:52.%f    ipfs_global background_thread_started  t=2.8ms
+21:53:52.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+21:53:52.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:53:52.%f    tx_sent    type=GLOBAL  hash=aa1d87f850a6...  send_ms=225.7
+21:53:52.%f    global_tx_fired  ms=369.2
+21:53:52.%f    confirmed  idx=0  block=45130115  submit_to_confirm_ms=57570
+21:53:52.%f    confirmed  idx=1  block=45130115  submit_to_confirm_ms=56985
+21:53:52.%f    confirmed  idx=2  block=45130143  submit_to_confirm_ms=387
+21:53:52.%f    wait_for_pending  n=3  total_wait_ms=387
+21:53:52.%f    round_confirmation_total_ms=387
+21:54:22.%f  IPFS background thread did not finish within 30s for round 3 — CIDs may be missing
+21:54:22.%f  --- ROUND 3 end  total_overhead_ms=756
+21:55:32.%f  --- ROUND 4 start  mode=OPT
+21:55:32.%f    gas_price_cached  price=6000000  fetch_ms=193.9
+21:55:32.%f    ipfs_local  background_thread_started  t=0.2ms
+21:55:32.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+21:55:32.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:55:32.%f    tx_sent    type=LOCAL   hash=5d84680ce342...  send_ms=303.7
+21:55:32.%f    local_tx_fired  ms=510.0
+21:55:32.%f    ipfs_vote   background_thread_started  t=0.3ms
+21:55:32.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+21:55:32.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:55:33.%f    tx_sent    type=VOTE    hash=533ef4238b34...  send_ms=269.5
+21:55:33.%f    vote_tx_fired  ms=476.4
+21:55:34.%f    ipfs_vote   cid=QmXxiycWZdHvj2PR... [background]
+21:55:34.%f    ipfs_local  cid=QmNLofyG6fNdPsUB... [background]
+21:56:13.%f    ipfs_global background_thread_started  t=2.4ms
+21:56:13.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+21:56:13.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:56:14.%f    tx_sent    type=GLOBAL  hash=a254714fe72f...  send_ms=811.5
+21:56:14.%f    global_tx_fired  ms=969.1
+21:56:14.%f    confirmed  idx=0  block=45130194  submit_to_confirm_ms=41485
+21:56:15.%f    confirmed  idx=1  block=45130194  submit_to_confirm_ms=41714
+21:56:15.%f    confirmed  idx=2  block=45130214  submit_to_confirm_ms=947
+21:56:15.%f    wait_for_pending  n=3  total_wait_ms=946
+21:56:15.%f    round_confirmation_total_ms=947
+21:56:45.%f  IPFS background thread did not finish within 30s for round 4 — CIDs may be missing
+21:56:45.%f  --- ROUND 4 end  total_overhead_ms=1916
+21:57:00.%f    ipfs_global ERROR=IPFS pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+21:57:44.%f  --- ROUND 5 start  mode=OPT
+21:57:44.%f    gas_price_cached  price=6000000  fetch_ms=129.3
+21:57:44.%f    ipfs_local  background_thread_started  t=0.2ms
+21:57:44.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+21:57:44.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:57:45.%f    tx_sent    type=LOCAL   hash=999079df2b25...  send_ms=303.1
+21:57:45.%f    local_tx_fired  ms=464.2
+21:57:45.%f    ipfs_vote   background_thread_started  t=0.2ms
+21:57:45.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+21:57:45.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:57:45.%f    tx_sent    type=VOTE    hash=6da0edc358c2...  send_ms=279.4
+21:57:45.%f    vote_tx_fired  ms=409.4
+21:57:47.%f    ipfs_vote   cid=QmNb2bGT6ydXrayp... [background]
+21:57:47.%f    ipfs_local  cid=QmNzcPYUXJdhkJTP... [background]
+21:59:10.%f    ipfs_global background_thread_started  t=1.9ms
+21:59:10.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+21:59:10.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+21:59:11.%f    tx_sent    type=GLOBAL  hash=430c6a3dcfd9...  send_ms=231.0
+21:59:11.%f    global_tx_fired  ms=377.8
+21:59:11.%f    confirmed  idx=0  block=45130260  submit_to_confirm_ms=86022
+21:59:11.%f    confirmed  idx=1  block=45130260  submit_to_confirm_ms=85743
+21:59:11.%f    confirmed  idx=2  block=45130303  submit_to_confirm_ms=427
+21:59:11.%f    wait_for_pending  n=3  total_wait_ms=427
+21:59:11.%f    round_confirmation_total_ms=427
+21:59:21.%f    ipfs_global model_cid=Qmceyk371idVLNSY...  [background]
+21:59:41.%f  IPFS background thread did not finish within 30s for round 5 — CIDs may be missing
+21:59:41.%f  --- ROUND 5 end  total_overhead_ms=805
+22:01:22.%f  --- ROUND 6 start  mode=OPT
+22:01:22.%f    gas_price_cached  price=6000000  fetch_ms=191.3
+22:01:22.%f    ipfs_local  background_thread_started  t=0.2ms
+22:01:22.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+22:01:22.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:01:23.%f    tx_sent    type=LOCAL   hash=2df030b7593d...  send_ms=460.5
+22:01:23.%f    local_tx_fired  ms=617.5
+22:01:23.%f    ipfs_vote   background_thread_started  t=0.6ms
+22:01:23.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+22:01:23.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:01:24.%f    tx_sent    type=VOTE    hash=50184fcf72e6...  send_ms=1619.1
+22:01:24.%f    vote_tx_fired  ms=1935.4
+22:01:28.%f    ipfs_vote   cid=QmeqeXU6bsTZmU14... [background]
+22:01:29.%f    ipfs_local  cid=QmYsjUwSCKxuqn2D... [background]
+22:02:21.%f    ipfs_global ERROR=IPFS pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+22:02:40.%f    ipfs_global background_thread_started  t=3.8ms
+22:02:40.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+22:02:40.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:02:41.%f    tx_sent    type=GLOBAL  hash=6fd22e7d9c5e...  send_ms=246.2
+22:02:41.%f    global_tx_fired  ms=421.1
+22:02:41.%f    confirmed  idx=0  block=45130369  submit_to_confirm_ms=78554
+22:02:41.%f    confirmed  idx=1  block=45130370  submit_to_confirm_ms=76783
+22:02:42.%f    confirmed  idx=2  block=45130408  submit_to_confirm_ms=1304
+22:02:42.%f    wait_for_pending  n=3  total_wait_ms=1304
+22:02:42.%f    round_confirmation_total_ms=1304
+22:03:12.%f  IPFS background thread did not finish within 30s for round 6 — CIDs may be missing
+22:03:12.%f  --- ROUND 6 end  total_overhead_ms=1725
+22:03:16.%f    ipfs_global model_cid=QmdjqLXa28AXuYhV...  [background]
+22:04:49.%f  --- ROUND 7 start  mode=OPT
+22:04:50.%f    gas_price_cached  price=6000000  fetch_ms=162.2
+22:04:50.%f    ipfs_local  background_thread_started  t=0.2ms
+22:04:50.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+22:04:50.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:04:50.%f    tx_sent    type=LOCAL   hash=173928b0f208...  send_ms=260.7
+22:04:50.%f    local_tx_fired  ms=440.1
+22:04:50.%f    ipfs_vote   background_thread_started  t=0.2ms
+22:04:50.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+22:04:50.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:04:51.%f    tx_sent    type=VOTE    hash=d4761b3de843...  send_ms=308.4
+22:04:51.%f    vote_tx_fired  ms=487.6
+22:04:52.%f    ipfs_local  cid=QmUEzWintfvrR17U... [background]
+22:04:52.%f    ipfs_vote   cid=QmawZ9saKfupUg7J... [background]
+22:07:39.%f    ipfs_global background_thread_started  t=2.3ms
+22:07:39.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+22:07:39.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:07:40.%f    tx_sent    type=GLOBAL  hash=7c44fbed2f35...  send_ms=713.0
+22:07:40.%f    global_tx_fired  ms=926.4
+22:07:40.%f    confirmed  idx=0  block=45130472  submit_to_confirm_ms=170083
+22:07:40.%f    confirmed  idx=1  block=45130473  submit_to_confirm_ms=169737
+22:07:40.%f    confirmed  idx=2  block=45130557  submit_to_confirm_ms=393
+22:07:40.%f    wait_for_pending  n=3  total_wait_ms=393
+22:07:40.%f    round_confirmation_total_ms=393
+22:07:47.%f    ipfs_global model_cid=QmQxJXk1ix8oKZ8z...  [background]
+22:07:47.%f  --- ROUND 7 end  total_overhead_ms=1320
+22:09:13.%f  --- ROUND 8 start  mode=OPT
+22:09:13.%f    gas_price_cached  price=6000000  fetch_ms=159.8
+22:09:13.%f    ipfs_local  background_thread_started  t=0.2ms
+22:09:13.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+22:09:13.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:09:14.%f    tx_sent    type=LOCAL   hash=1536893e794a...  send_ms=439.3
+22:09:14.%f    local_tx_fired  ms=595.2
+22:09:14.%f    ipfs_vote   background_thread_started  t=0.2ms
+22:09:14.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+22:09:14.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:09:14.%f    tx_sent    type=VOTE    hash=f1aa183dbe4f...  send_ms=288.3
+22:09:14.%f    vote_tx_fired  ms=426.8
+22:09:16.%f    ipfs_vote   cid=QmYDjRSeYgjHNfaX... [background]
+22:09:16.%f    ipfs_local  cid=Qme2vfa9J4dohpRs... [background]
+22:09:50.%f    ipfs_global background_thread_started  t=2.6ms
+22:09:50.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+22:09:50.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:09:51.%f    tx_sent    type=GLOBAL  hash=ade457f536bf...  send_ms=245.3
+22:09:51.%f    global_tx_fired  ms=436.7
+22:09:51.%f    confirmed  idx=0  block=45130604  submit_to_confirm_ms=37090
+22:09:51.%f    confirmed  idx=1  block=45130605  submit_to_confirm_ms=36868
+22:09:51.%f    confirmed  idx=2  block=45130623  submit_to_confirm_ms=480
+22:09:51.%f    wait_for_pending  n=3  total_wait_ms=480
+22:09:51.%f    round_confirmation_total_ms=480
+22:10:21.%f  IPFS background thread did not finish within 30s for round 8 — CIDs may be missing
+22:10:21.%f  --- ROUND 8 end  total_overhead_ms=917
+22:11:20.%f  --- ROUND 9 start  mode=OPT
+22:11:20.%f    gas_price_cached  price=6000000  fetch_ms=619.0
+22:11:20.%f    ipfs_local  background_thread_started  t=0.2ms
+22:11:20.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+22:11:20.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:11:21.%f    tx_sent    type=LOCAL   hash=c363f229817e...  send_ms=384.6
+22:11:21.%f    local_tx_fired  ms=545.9
+22:11:21.%f    ipfs_vote   background_thread_started  t=0.2ms
+22:11:21.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+22:11:21.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:11:22.%f    tx_sent    type=VOTE    hash=0b69c848929a...  send_ms=598.9
+22:11:22.%f    vote_tx_fired  ms=1194.2
+22:11:22.%f    ipfs_local  cid=QmZ3a6HqYWGFuKoi... [background]
+22:11:23.%f    ipfs_vote   cid=QmXFud51muDHwkkF... [background]
+22:11:58.%f    ipfs_global background_thread_started  t=3.4ms
+22:11:58.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+22:11:58.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:11:59.%f    tx_sent    type=GLOBAL  hash=077a559da60b...  send_ms=411.5
+22:11:59.%f    global_tx_fired  ms=626.4
+22:11:59.%f    confirmed  idx=0  block=45130668  submit_to_confirm_ms=37981
+22:11:59.%f    confirmed  idx=1  block=45130668  submit_to_confirm_ms=36903
+22:11:59.%f    confirmed  idx=2  block=45130687  submit_to_confirm_ms=360
+22:11:59.%f    wait_for_pending  n=3  total_wait_ms=360
+22:11:59.%f    round_confirmation_total_ms=360
+22:12:29.%f  IPFS background thread did not finish within 30s for round 9 — CIDs may be missing
+22:12:29.%f  --- ROUND 9 end  total_overhead_ms=987
+22:12:59.%f    ipfs_global ERROR=IPFS pin failed after 3 attempts: ('Connection aborted.', TimeoutError('The write operation timed out'))
+22:13:29.%f  --- ROUND 10 start  mode=OPT
+22:13:30.%f    gas_price_cached  price=6000000  fetch_ms=299.7
+22:13:30.%f    ipfs_local  background_thread_started  t=0.2ms
+22:13:30.%f    gas_limit  type=LOCAL  cached=275167  saved_rpc_ms=~30
+22:13:30.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:13:30.%f    tx_sent    type=LOCAL   hash=5eed362903ff...  send_ms=710.8
+22:13:30.%f    local_tx_fired  ms=817.9
+22:13:30.%f    ipfs_vote   background_thread_started  t=0.3ms
+22:13:30.%f    gas_limit  type=VOTE   cached=268860  saved_rpc_ms=~30
+22:13:30.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:13:31.%f    tx_sent    type=VOTE    hash=72e3ea6e4eff...  send_ms=424.6
+22:13:31.%f    vote_tx_fired  ms=555.3
+22:13:31.%f    ipfs_local  cid=QmUMzyHmEuoedAxP... [background]
+22:13:32.%f    ipfs_vote   cid=QmdSXosfGyGMR9ru... [background]
+22:14:06.%f    ipfs_global background_thread_started  t=3.1ms
+22:14:06.%f    gas_limit  type=GLOBAL cached=223497  saved_rpc_ms=~30
+22:14:06.%f    gas_price  cached=6000000  saved_rpc_ms=~20
+22:14:07.%f    tx_sent    type=GLOBAL  hash=988cbd113876...  send_ms=716.1
+22:14:07.%f    global_tx_fired  ms=844.0
+22:14:07.%f    confirmed  idx=0  block=45130733  submit_to_confirm_ms=36884
+22:14:07.%f    confirmed  idx=1  block=45130733  submit_to_confirm_ms=36466
+22:14:08.%f    confirmed  idx=2  block=45130751  submit_to_confirm_ms=368
+22:14:08.%f    wait_for_pending  n=3  total_wait_ms=368
+22:14:08.%f    round_confirmation_total_ms=368
+22:14:12.%f    ipfs_global model_cid=QmNb1kkwBhGCRdBv...  [background]
+22:14:12.%f  --- ROUND 10 end  total_overhead_ms=1212
+22:14:13.%f    verify_chain  valid=True  ms=490  [deferred-end]
