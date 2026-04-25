@@ -26,30 +26,66 @@ def _get_device_stats() -> dict:
     Safe on RP4 (reads /sys/class/thermal/thermal_zone0/temp) and on any
     Linux/macOS host where psutil is installed.
     """
-    if not _HAS_PSUTIL:
-        return {"cpu_percent": -1.0, "ram_used_mb": -1.0, "cpu_temp_c": -1.0}
-    cpu_pct = float(_psutil.cpu_percent(interval=0.2))
-    ram_mb  = float(_psutil.virtual_memory().used / 1024 ** 2)
+    cpu_pct = -1.0
+    ram_mb  = -1.0
     temp    = -1.0
+
+    if _HAS_PSUTIL:
+        cpu_pct = float(_psutil.cpu_percent(interval=0.2))
+        ram_mb = float(_psutil.virtual_memory().used / 1024 ** 2)
+    else:
+        # Fallback on Linux when psutil isn't installed.
+        try:
+            mem_total_kb = None
+            mem_available_kb = None
+            with open("/proc/meminfo", "r", encoding="utf-8") as _f:
+                for _line in _f:
+                    if _line.startswith("MemTotal:"):
+                        mem_total_kb = float(_line.split()[1])
+                    elif _line.startswith("MemAvailable:"):
+                        mem_available_kb = float(_line.split()[1])
+                    if mem_total_kb is not None and mem_available_kb is not None:
+                        break
+            if mem_total_kb and mem_available_kb is not None:
+                ram_mb = (mem_total_kb - mem_available_kb) / 1024.0
+        except Exception:
+            pass
+
     # RP4 Linux thermal zone (also works on most ARM SBCs)
     try:
         with open("/sys/class/thermal/thermal_zone0/temp") as _f:
             temp = float(_f.read().strip()) / 1000.0
     except Exception:
         # Fallback: psutil sensors (Linux/Windows)
-        try:
-            sensors = _psutil.sensors_temperatures()
-            for _key in ("cpu_thermal", "coretemp", "k10temp"):
-                if _key in sensors and sensors[_key]:
-                    temp = float(sensors[_key][0].current)
-                    break
-        except Exception:
-            pass
+        if _HAS_PSUTIL:
+            try:
+                sensors = _psutil.sensors_temperatures()
+                for _key in ("cpu_thermal", "coretemp", "k10temp"):
+                    if _key in sensors and sensors[_key]:
+                        temp = float(sensors[_key][0].current)
+                        break
+            except Exception:
+                pass
     return {
         "cpu_percent": round(cpu_pct, 1),
         "ram_used_mb": round(ram_mb, 1),
         "cpu_temp_c":  round(temp, 1),
     }
+
+
+def _interval_cpu_percent(cpu_seconds: float, wall_seconds: float) -> float:
+    """Estimate process CPU utilization across an interval.
+
+    Returns a percentage in [0, 100] representing share of total host CPU
+    capacity used by this process during the interval.
+    """
+    if not _HAS_PSUTIL:
+        return -1.0
+    if wall_seconds <= 0:
+        return -1.0
+    ncpu = _psutil.cpu_count() or 1
+    pct = 100.0 * (cpu_seconds / (wall_seconds * ncpu))
+    return round(max(0.0, min(100.0, pct)), 1)
 
 
 def _log(tag: str, msg: str):
@@ -92,8 +128,26 @@ def train(msg: Message, context: Context):
     # ── Train ──────────────────────────────────────────────────
     _log(f"CLIENT-{pid}", f"Starting local training ({epochs} epochs)...")
     t_train = time.time()
+    _cpu_t0 = None
+    if _HAS_PSUTIL:
+        try:
+            _p = _psutil.Process()
+            _ct = _p.cpu_times()
+            _cpu_t0 = float(_ct.user + _ct.system)
+        except Exception:
+            _cpu_t0 = None
     m = train_fn(model, trainloader, epochs=epochs, lr=lr, device=device)
     train_elapsed = time.time() - t_train
+
+    cpu_interval_pct = -1.0
+    if _HAS_PSUTIL and _cpu_t0 is not None:
+        try:
+            _p = _psutil.Process()
+            _ct = _p.cpu_times()
+            _cpu_t1 = float(_ct.user + _ct.system)
+            cpu_interval_pct = _interval_cpu_percent(_cpu_t1 - _cpu_t0, train_elapsed)
+        except Exception:
+            cpu_interval_pct = -1.0
 
     # Class activity summary
     y       = trainloader.dataset.tensors[1]
@@ -101,6 +155,8 @@ def train(msg: Message, context: Context):
     active  = int((counts > 0).sum())
 
     hw = _get_device_stats()
+    if cpu_interval_pct >= 0:
+        hw["cpu_percent"] = cpu_interval_pct
 
     _log(f"CLIENT-{pid}", f"Training complete: "
                           f"loss={m['train_loss']:.5f}  "
@@ -162,10 +218,30 @@ def evaluate(msg: Message, context: Context):
 
     # ── Evaluate ───────────────────────────────────────────────
     t_eval = time.time()
+    _cpu_t0 = None
+    if _HAS_PSUTIL:
+        try:
+            _p = _psutil.Process()
+            _ct = _p.cpu_times()
+            _cpu_t0 = float(_ct.user + _ct.system)
+        except Exception:
+            _cpu_t0 = None
     r = test_fn(model, valloader, device)
     eval_elapsed = time.time() - t_eval
 
+    cpu_interval_pct = -1.0
+    if _HAS_PSUTIL and _cpu_t0 is not None:
+        try:
+            _p = _psutil.Process()
+            _ct = _p.cpu_times()
+            _cpu_t1 = float(_ct.user + _ct.system)
+            cpu_interval_pct = _interval_cpu_percent(_cpu_t1 - _cpu_t0, eval_elapsed)
+        except Exception:
+            cpu_interval_pct = -1.0
+
     hw = _get_device_stats()
+    if cpu_interval_pct >= 0:
+        hw["cpu_percent"] = cpu_interval_pct
 
     _log(f"CLIENT-{pid}", f"Evaluation complete: "
                           f"loss={r['loss']:.5f}  "

@@ -123,6 +123,7 @@ def train(net, trainloader, epochs, lr=2e-3, device=torch.device("cpu"),
 
 def test(net, testloader, device=torch.device("cpu")):
     if len(testloader) == 0:
+        print(f"[{_ts()}] [TEST] WARNING: testloader is empty — returning zero metrics")
         return _empty()
 
     net.to(device).eval()
@@ -206,8 +207,8 @@ def _empty():
         "per_class_precision": z, "per_class_recall": z, "per_class_f1": z,
         "per_class_specificity": z, "per_class_auc": z,
         "per_class_support": [0] * NUM_CLASSES,
-        "per_class_cm": [{"TP": 0, "FP": 0, "FN": 0, "TN": 0}] * NUM_CLASSES,
+        "per_class_cm": [{"TP": 0, "FP": 0, "FN": 0, "TN": 0} for _ in range(NUM_CLASSES)],
         "optimal_thresholds": [0.5] * NUM_CLASSES,
-        "confusion_matrix": [[0] * NUM_CLASSES] * NUM_CLASSES,
+        "confusion_matrix": [[0] * NUM_CLASSES for _ in range(NUM_CLASSES)],
         "num_samples": 0, "num_classes": NUM_CLASSES,
     }

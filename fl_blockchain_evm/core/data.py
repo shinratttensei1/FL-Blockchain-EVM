@@ -67,7 +67,19 @@ def _load_subject(subject_id: int) -> Tuple[np.ndarray, np.ndarray]:
     cache_labels = os.path.join(_NPY_CACHE_DIR, f"s{subject_id}_labels.npy")
 
     if os.path.exists(cache_data) and os.path.exists(cache_labels):
-        return np.load(cache_data), np.load(cache_labels)
+        try:
+            return np.load(cache_data), np.load(cache_labels)
+        except Exception as e:
+            # Recover automatically from truncated/corrupted cache files.
+            print(f"  [MHEALTH] Cache for subject {subject_id} is invalid ({e}); rebuilding...")
+            try:
+                os.remove(cache_data)
+            except OSError:
+                pass
+            try:
+                os.remove(cache_labels)
+            except OSError:
+                pass
 
     path = os.path.join(DATA_DIR, f"mHealth_subject{subject_id}.log")
     if not os.path.exists(path):
@@ -244,15 +256,34 @@ def load_data(partition_id: int, num_partitions: int, beta: float = 1.0,
     """
     X_tr, y_tr, s_tr, X_te, y_te, _ = _get_data()
 
+    if num_partitions <= 0:
+        raise ValueError(f"num_partitions must be > 0, got {num_partitions}")
+    if partition_id < 0 or partition_id >= num_partitions:
+        raise ValueError(
+            f"partition_id must be in [0, {num_partitions - 1}], got {partition_id}"
+        )
+
     # Assign training subjects to this partition
     train_subjects = sorted(_TRAIN_SUBJECTS)
-    chunks         = np.array_split(train_subjects, num_partitions)
-    my_subjects    = set(int(s) for s in chunks[partition_id])
+    if num_partitions <= len(train_subjects):
+        chunks = np.array_split(train_subjects, num_partitions)
+        my_subjects = set(int(s) for s in chunks[partition_id])
+    else:
+        # More clients than training subjects: map multiple clients to each
+        # subject deterministically so every client always gets data.
+        sid = train_subjects[partition_id % len(train_subjects)]
+        my_subjects = {int(sid)}
 
     my_idx = np.where(np.isin(s_tr, list(my_subjects)))[0]
 
     X_part = X_tr[my_idx].copy()
     y_part = y_tr[my_idx].copy()
+
+    if len(X_part) == 0:
+        raise ValueError(
+            f"No training windows assigned to partition {partition_id} "
+            f"(subjects={sorted(my_subjects)})."
+        )
 
     print(f"  [MHEALTH] Partition {partition_id}: "
           f"subjects={sorted(my_subjects)}, windows={len(X_part)}")

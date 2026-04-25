@@ -23,6 +23,8 @@ Environment variables (set in .env)
 ───────────────────────────────────
   IPFS_BACKEND       pinata | local | web3storage   (empty = IPFS disabled)
   PINATA_JWT         JWT from https://app.pinata.cloud/developers/api-keys
+  PINATA_JWT_2       (optional) fallback JWT — used automatically when the
+                     primary account hits its storage/pin limit
   PINATA_GATEWAY     (optional) e.g. https://gateway.pinata.cloud/ipfs/
   LOCAL_IPFS_API     (optional) default http://127.0.0.1:5001
   WEB3STORAGE_TOKEN  Token from https://web3.storage
@@ -105,23 +107,47 @@ class IPFSStorage:
         # ── Backend-specific initialization ──────────────────
 
         if backend == "pinata":
-            self._jwt = pinata_jwt or os.getenv("PINATA_JWT", "")
-            if not self._jwt:
+            jwt1 = pinata_jwt or os.getenv("PINATA_JWT", "")
+            jwt2 = os.getenv("PINATA_JWT_2", "")
+
+            # PINATA_ACCOUNT=1 → primary account_1, fallback account_2 (default)
+            # PINATA_ACCOUNT=2 → primary account_2, fallback account_1
+            # This lets the pipeline route the first half of runs to account_1
+            # and the second half to account_2 for clean data separation.
+            _account = os.getenv("PINATA_ACCOUNT", "1").strip()
+            if _account == "2":
+                _ordered = [jwt2, jwt1]
+                _primary_label = "account_2"
+            else:
+                _ordered = [jwt1, jwt2]
+                _primary_label = "account_1"
+
+            _jwts = [j for j in _ordered if j]
+            if not _jwts:
                 raise ValueError(
                     "PINATA_JWT required. "
                     "Get one at https://app.pinata.cloud/developers/api-keys"
                 )
+            self._pinata_jwts = _jwts
+            self._pinata_jwt_idx = 0
             self._gateway = (
                 pinata_gateway
                 or os.getenv("PINATA_GATEWAY", "")
                 or self.GATEWAYS[0]
             )
-            self._session.headers["Authorization"] = f"Bearer {self._jwt}"
+            self._session.headers["Authorization"] = f"Bearer {_jwts[0]}"
             self._pin_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
             self._pin_json_url = (
                 "https://api.pinata.cloud/pinning/pinJSONToIPFS"
             )
             self._unpin_url = "https://api.pinata.cloud/pinning/unpin/"
+            n_accounts = len(_jwts)
+            print(
+                f"  [IPFS] Pinata primary: {_primary_label}"
+                f" | accounts configured: {n_accounts}"
+                + (" (+ 1 fallback)" if n_accounts > 1 else ""),
+                flush=True,
+            )
 
         elif backend == "local":
             self._api_url = (
@@ -179,9 +205,14 @@ class IPFSStorage:
                     "Pinned %s → %s (%d → %d bytes)",
                     name, cid, original_size, len(data),
                 )
+                acct = (
+                    f" [{self._active_account_label}]"
+                    if self.backend == "pinata" else ""
+                )
                 print(
-                    f"  [IPFS] ✓ {name} → {cid[:20]}… "
-                    f"({original_size:,} → {len(data):,} bytes)"
+                    f"  [IPFS] ✓ {name} → {cid[:20]}…"
+                    f" ({original_size:,} → {len(data):,} bytes){acct}",
+                    flush=True,
                 )
                 return cid
 
@@ -344,23 +375,91 @@ class IPFSStorage:
             return self._web3storage_pin(data, name)
         raise ValueError(f"Unknown backend: {self.backend}")
 
+    @staticmethod
+    def _pinata_limit_error(resp: requests.Response) -> bool:
+        """True when Pinata is rejecting the upload due to account limits.
+
+        Pinata returns 403 Forbidden when the free-tier storage cap is
+        reached — confirmed from production logs. 402 = payment required,
+        429 = rate limited. All three signal account exhaustion.
+        """
+        # 402 = payment required (storage cap), 403 = forbidden (storage cap on Pinata)
+        # 429 = rate-limited: temporary, should NOT trigger a JWT switch — let
+        #       the outer pin_bytes retry loop handle it with exponential backoff
+        if resp.status_code in (402, 403):
+            return True
+        if resp.status_code == 400:
+            try:
+                msg = str(resp.json().get("error", "")).lower()
+                return "limit" in msg or "storage" in msg or "quota" in msg
+            except Exception:
+                pass
+        return False
+
+    @property
+    def _active_account_label(self) -> str:
+        return f"account_{self._pinata_jwt_idx + 1}/{len(self._pinata_jwts)}"
+
     def _pinata_pin(self, data: bytes, name: str) -> str:
-        """Pin via Pinata Cloud API — recommended for RP4."""
+        """Pin via Pinata Cloud API with automatic JWT failover.
+
+        Iterates through all configured JWTs. On a storage-limit error
+        (HTTP 402/403/429) it switches to the next JWT and retries
+        immediately. On any other error it raises so the outer pin_bytes
+        retry loop can back off and try again.
+        """
         metadata = json.dumps({
             "name": name,
-            "keyvalues": {
-                "app": "fl-blockchain-evm",
-                "type": "fl-artifact",
-            },
+            "keyvalues": {"app": "fl-blockchain-evm", "type": "fl-artifact"},
         })
-        resp = self._session.post(
-            self._pin_url,
-            files={"file": (name, io.BytesIO(data))},
-            data={"pinataMetadata": metadata},
-            timeout=self.timeout,
+        for attempt in range(len(self._pinata_jwts)):
+            account_label = f"account_{self._pinata_jwt_idx + 1}"
+            resp = self._session.post(
+                self._pin_url,
+                files={"file": (name, io.BytesIO(data))},
+                data={"pinataMetadata": metadata},
+                timeout=self.timeout,
+            )
+            if resp.ok:
+                cid = resp.json()["IpfsHash"]
+                log.info("Pinned %s via %s → %s", name, account_label, cid[:20])
+                return cid
+
+            if self._pinata_limit_error(resp):
+                next_idx = self._pinata_jwt_idx + 1
+                if next_idx < len(self._pinata_jwts):
+                    self._pinata_jwt_idx = next_idx
+                    self._session.headers["Authorization"] = (
+                        f"Bearer {self._pinata_jwts[self._pinata_jwt_idx]}"
+                    )
+                    msg = (
+                        f"  [IPFS] Pinata {account_label} exhausted"
+                        f" (HTTP {resp.status_code})"
+                        f" → switching to account_{self._pinata_jwt_idx + 1}"
+                        f"/{len(self._pinata_jwts)}"
+                    )
+                    print(msg, flush=True)
+                    log.warning(msg.strip())
+                    continue
+                else:
+                    log.error(
+                        "All %d Pinata accounts exhausted (HTTP %d) — "
+                        "IPFS upload will fail after retries",
+                        len(self._pinata_jwts), resp.status_code,
+                    )
+                    print(
+                        f"  [IPFS] WARNING: all Pinata accounts exhausted"
+                        f" — {name} will not be pinned",
+                        flush=True,
+                    )
+
+            resp.raise_for_status()  # non-limit error → let pin_bytes retry
+
+        # Should not reach here, but safety net
+        raise RuntimeError(
+            f"Pinata pin failed for {name} after trying all "
+            f"{len(self._pinata_jwts)} account(s)"
         )
-        resp.raise_for_status()
-        return resp.json()["IpfsHash"]
 
     def _local_pin(self, data: bytes, name: str) -> str:
         """Pin via local kubo HTTP API."""

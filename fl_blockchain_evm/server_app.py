@@ -82,15 +82,18 @@ try:
 except Exception:
     pass
 
+_PINATA_ACCOUNT = os.getenv("PINATA_ACCOUNT", "1")
+
 _EXPERIMENT_CONFIG: Dict = {
     "variant":              _VARIANT,
     "run_timestamp":        _RUN_TS,
     "output_dir":           _OUT_DIR,
     "blockchain_optimized": os.getenv("BLOCKCHAIN_OPTIMIZED", "0") == "1",
     "ipfs_backend":         os.getenv("IPFS_BACKEND", "disabled"),
+    "pinata_account":       _PINATA_ACCOUNT,
     "hardware_note":        os.getenv("HARDWARE_NOTE", "8x RPi4, WiFi 2.4GHz"),
     "num_rounds":           int(_pyproject_cfg.get("num-server-rounds", 10)),
-    "num_clients":          8,
+    "num_clients":          int(_pyproject_cfg.get("num-partitions", os.getenv("NUM_PARTITIONS", 8))),
     "local_epochs":         int(_pyproject_cfg.get("local-epochs", 1)),
     "batch_size":           int(_pyproject_cfg.get("batch-size", 256)),
     "lr":                   float(_pyproject_cfg.get("lr", 0.002)),
@@ -100,6 +103,7 @@ with open(f"{_OUT_DIR}/experiment_config.json", "w") as _f:
     json.dump(_EXPERIMENT_CONFIG, _f, indent=2)
 print(f"[SETUP] Run output dir : {_OUT_DIR}")
 print(f"[SETUP] Variant        : {_VARIANT}")
+print(f"[SETUP] Pinata account : {_PINATA_ACCOUNT}")
 
 SC_LABELS = [
     'STANDING', 'SITTING', 'LYING', 'WALKING', 'CLIMBING_STAIRS',
@@ -176,7 +180,10 @@ def global_evaluate(server_round, arrays, config=None):
               f"AUC={m['per_class_auc'][i]:.3f}  "
               f"(n={m['per_class_support'][i]})")
 
-    _plot_cm(m["confusion_matrix"], server_round, m["accuracy"], m["f1_macro"])
+    try:
+        _plot_cm(m["confusion_matrix"], server_round, m["accuracy"], m["f1_macro"])
+    except Exception as _e:
+        print(f"  [WARN] confusion matrix plot failed (non-fatal): {_e}")
 
     num_clients = len(_round_state["train_results"])
 

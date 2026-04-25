@@ -166,6 +166,12 @@ class EVMBlockchain:
         # onwards.
         self._gas_cache: Dict[str, int] = {}
 
+        # IPFS background threads (OPTIMIZED mode): joined after blockchain
+        # confirmation so CIDs are captured before the round completes.
+        # Each entry: (thread, fl_round, result_dict)
+        # result_dict keys: local_cid | vote_cid | model_cid | metrics_cid
+        self._ipfs_threads: List[tuple] = []
+
         # IPFS off-chain storage (optional — degrades gracefully)
         self._ipfs = None
         self._round_cids: Dict[int, Dict[str, str]] = {}
@@ -390,16 +396,17 @@ class EVMBlockchain:
                 _local_result: Dict = {}
                 def _upload_local():
                     try:
-                        _local_result["cid"] = self._ipfs.pin_json(
+                        _local_result["local_cid"] = self._ipfs.pin_json(
                             local_payload, f"round_{fl_round}_local")
                         self._perf.info(
-                            f"  ipfs_local  cid={_local_result['cid'][:16]}... [background]"
+                            f"  ipfs_local  cid={_local_result['local_cid'][:16]}... [background]"
                         )
                     except Exception as e:
                         self._perf.info(f"  ipfs_local  ERROR={e}")
                 t_ipfs0 = time.perf_counter()
                 _local_thread = threading.Thread(target=_upload_local, daemon=True)
                 _local_thread.start()
+                self._ipfs_threads.append((_local_thread, fl_round, _local_result))
                 self._perf.info(
                     f"  ipfs_local  background_thread_started"
                     f"  t={1000*(time.perf_counter()-t_ipfs0):.1f}ms"
@@ -467,16 +474,17 @@ class EVMBlockchain:
                 _vote_result: Dict = {}
                 def _upload_vote():
                     try:
-                        _vote_result["cid"] = self._ipfs.pin_json(
+                        _vote_result["vote_cid"] = self._ipfs.pin_json(
                             vote_payload, f"round_{fl_round}_votes")
                         self._perf.info(
-                            f"  ipfs_vote   cid={_vote_result['cid'][:16]}... [background]"
+                            f"  ipfs_vote   cid={_vote_result['vote_cid'][:16]}... [background]"
                         )
                     except Exception as e:
                         self._perf.info(f"  ipfs_vote   ERROR={e}")
                 t_ipfs1 = time.perf_counter()
                 _vote_thread = threading.Thread(target=_upload_vote, daemon=True)
                 _vote_thread.start()
+                self._ipfs_threads.append((_vote_thread, fl_round, _vote_result))
                 self._perf.info(
                     f"  ipfs_vote   background_thread_started"
                     f"  t={1000*(time.perf_counter()-t_ipfs1):.1f}ms"
@@ -572,6 +580,7 @@ class EVMBlockchain:
                 t_ipfs2 = time.perf_counter()
                 _global_thread = threading.Thread(target=_upload_global, daemon=True)
                 _global_thread.start()
+                self._ipfs_threads.append((_global_thread, fl_round, _global_result))
                 self._perf.info(
                     f"  ipfs_global background_thread_started"
                     f"  t={1000*(time.perf_counter()-t_ipfs2):.1f}ms"
@@ -631,6 +640,27 @@ class EVMBlockchain:
         self._perf.info(
             f"  round_confirmation_total_ms={1000*(t_conf1-t_conf0):.0f}"
         )
+
+        # ── Collect IPFS CIDs from background threads (OPTIMIZED) ─────
+        if self._optimized and self._ipfs_threads:
+            for thread, rnd, result in self._ipfs_threads:
+                thread.join(timeout=30)
+                if thread.is_alive():
+                    self._perf.warning(
+                        "IPFS background thread did not finish within 30s "
+                        "for round %d — CIDs may be missing", rnd
+                    )
+                    print(
+                        f"  [IPFS] WARNING: background upload thread timed out"
+                        f" for round {rnd}",
+                        flush=True,
+                    )
+                else:
+                    d = self._round_cids.setdefault(rnd, {})
+                    for key in ("local_cid", "vote_cid", "model_cid", "metrics_cid"):
+                        if key in result:
+                            d[key] = result[key]
+            self._ipfs_threads.clear()
 
         # ── verifyChain: per-round in baseline, deferred in optimized ─
         if not self._optimized:

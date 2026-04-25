@@ -33,8 +33,8 @@ PI_HOSTS=(
     "raspberrypi5.local"
     "raspberrypi6.local"
     "raspberrypi7.local"
-    # "raspberrypi8.local"
-    # "raspberrypi9.local"
+    "raspberrypi8.local"
+    "raspberrypi9.local"
 )
 
 # ── Training defaults ──────────────────────────────────────────
@@ -236,9 +236,13 @@ cmd_setup() {
                 _plog "Copied ${npy_count} npy cache files."
             fi
 
-            [ -f "$PROJECT_DIR/.env" ] && \
-                pi_scp -q "$PROJECT_DIR/.env" "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/.env" && \
-                _plog ".env copied."
+            if [ -f "$PROJECT_DIR/.env.pi" ]; then
+                pi_scp -q "$PROJECT_DIR/.env.pi" "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/.env"
+                _plog ".env.pi copied as .env for Pi client."
+            elif [ -f "$PROJECT_DIR/.env" ]; then
+                pi_scp -q "$PROJECT_DIR/.env" "${PI_USER}@${pi_host}:~/FL-Blockchain-EVM/.env"
+                _plog ".env copied (fallback)."
+            fi
 
             _plog "Installing Python dependencies (may take 15-30 min first time)..."
             pi_ssh "$pi_host" bash << 'PISETUP'
@@ -380,10 +384,24 @@ cmd_train() {
         [ -n "$_SL_PID"   ] && kill "$_SL_PID"   2>/dev/null && info "  ✓ SuperLink stopped"   || true
         [ -n "$_DASH_PID" ] && kill "$_DASH_PID"  2>/dev/null && info "  ✓ Dashboard stopped"   || true
         pkill -f "flower-superlink" 2>/dev/null || true
+        local _cleanup_pids=()
         for pi in "${PI_HOSTS[@]}"; do
-            pi_ssh "$pi" "pkill -f flower-supernode 2>/dev/null; true" 2>/dev/null &
+            (
+                pi_ssh "$pi" "pkill -f flower-supernode 2>/dev/null; true" 2>/dev/null || true
+            ) &
+            _cleanup_pids+=("$!")
         done
-        wait; info "  ✓ Pi processes stopped"
+
+        local _failed_wait=0
+        for _pid in "${_cleanup_pids[@]}"; do
+            wait "$_pid" || _failed_wait=1
+        done
+
+        if [ "$_failed_wait" -eq 0 ]; then
+            info "  ✓ Pi processes stopped"
+        else
+            warn "  Some Pi cleanup commands failed (non-fatal)"
+        fi
     }
     trap cleanup EXIT
 
@@ -546,7 +564,7 @@ PY
     export FL_DATA_DIR="$PROJECT_DIR/data/MHEALTHDATASET"
 
     flwr run . remote-federation \
-        --run-config "num-server-rounds=${NUM_ROUNDS} lr=${LR} local-epochs=${LOCAL_EPOCHS} batch-size=${BATCH_SIZE} fraction-train=1.0" \
+        --run-config "num-server-rounds=${NUM_ROUNDS} lr=${LR} local-epochs=${LOCAL_EPOCHS} batch-size=${BATCH_SIZE} fraction-train=1.0 num-partitions=${NUM_PARTITIONS}" \
         --stream \
         2>&1 | tee "$LOG_DIR/training.log"
 
