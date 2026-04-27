@@ -7,7 +7,7 @@ import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.2/contr
 
 /**
  * @title   FLBlockchain
- * @notice  Immutable audit ledger for federated learning rounds on Polygon Amoy.
+ * @notice  Immutable audit ledger for federated learning rounds on Base mainnet (EVM L2).
  */
 contract FLBlockchain is Ownable, Pausable {
 
